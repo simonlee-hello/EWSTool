@@ -130,21 +130,29 @@ def search_emails(session, host, keyword, folder_path, save_path):
 def main():
     parser = argparse.ArgumentParser(description="EWS工具")
     parser.add_argument("--host", required=True, help="目标Exchange服务器")
-    parser.add_argument("--mode", required=True, choices=["plaintext", "hash"], help="认证模式")
+    # parser.add_argument("--mode", required=True, choices=["plaintext", "hash"], help="认证模式")
     parser.add_argument("--username", required=True, help="用户名")
-    parser.add_argument("--password", required=True, help="密码或哈希")
-    parser.add_argument("--command", required=True, choices=["download", "findallpeople", "search"], help="命令")
+    parser.add_argument("--password", required=False, help="哈希")
+    parser.add_argument("--hash", required=False, help="哈希")
+    parser.add_argument("--command", required=True, choices=["download", "people", "search"], help="命令")
     parser.add_argument("--proxy", help="HTTP代理")
     args = parser.parse_args()
 
-    password = args.password.upper() if args.mode == "hash" else args.password
+    # password = args.password.upper() if args.mode == "hash" else args.password
+    if args.password:
+        password_or_hash = args.password
+    elif args.hash:
+        password_or_hash = "00000000000000000000000000000000:" + args.hash.upper()
+    else:
+        logging.error("请输入密码或哈希")
+        sys.exit(1)
     proxies = {"http": args.proxy, "https": args.proxy} if args.proxy else None
 
     session = requests.Session()
-    session.auth = HttpNtlmAuth(args.username, password)
+    session.auth = HttpNtlmAuth(args.username, password_or_hash)
     session.proxies = proxies
 
-    if args.command == "findallpeople":
+    if args.command == "people":
         logging.info("查找所有人员")
         all_results = set()
 
