@@ -8,6 +8,7 @@ from string import Template
 import xml.etree.ElementTree as ET
 from base64 import b64decode
 import requests
+from datetime import datetime
 from requests_ntlm import HttpNtlmAuth
 from urllib3.exceptions import InsecureRequestWarning
 
@@ -190,8 +191,8 @@ def main():
     # New arguments for search command
     parser.add_argument("--search_type", choices=["keyword", "DateTimeReceived", "DateTimeSent"], help="搜索类型")
     parser.add_argument("--keyword", help="搜索关键词")
-    parser.add_argument("--date_from", default='', help="搜索起始日期")
-    parser.add_argument("--date_to", default='', help="搜索截止日期")
+    parser.add_argument("--date_from", help="搜索起始日期")
+    parser.add_argument("--date_to",default=datetime.today().strftime('%Y-%m-%d'), help="搜索截止日期")
 
     args = parser.parse_args()
 
