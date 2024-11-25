@@ -117,10 +117,10 @@ def save_single_email(session, host, email_id, change_key, save_path):
     email_file = os.path.join(save_path, escape_filename(email_id[-16:] + ".eml"))
     save_email_to_file(email_file, mime_content)
 
-def search_emails(session, host, folder_path, search_type, keyword, date_from, date_to, save_path):
+def search_emails(session, host, folder_path, type, keyword, start, end, save_path):
     """按关键字搜索邮件"""
     template_file = os.path.join(TEMPLATES_FOLDER, "SearchMail.xml")
-    if search_type == "keyword" and keyword:
+    if type == "keyword" and keyword:
         search_condition = f"""
                 <t:Or>
                   <t:Contains ContainmentMode="Substring" ContainmentComparison="IgnoreCase">
@@ -133,42 +133,42 @@ def search_emails(session, host, folder_path, search_type, keyword, date_from, d
                   </t:Contains>
                 </t:Or>
             """
-    elif search_type == "DateTimeReceived" and date_from and date_to:
+    elif type == "DateTimeReceived" and start and end:
         search_condition = f"""
                 <t:And>
                   <t:IsGreaterThanOrEqualTo>
                       <t:FieldURI FieldURI="item:DateTimeReceived" />
                       <t:FieldURIOrConstant>
-                        <t:Constant Value="{date_from}" />
+                        <t:Constant Value="{start}" />
                       </t:FieldURIOrConstant>
                     </t:IsGreaterThanOrEqualTo>
                   <t:IsLessThanOrEqualTo>
                       <t:FieldURI FieldURI="item:DateTimeReceived" />
                       <t:FieldURIOrConstant>
-                        <t:Constant Value="{date_to}" />
+                        <t:Constant Value="{end}" />
                       </t:FieldURIOrConstant>
                   </t:IsLessThanOrEqualTo>
                 </t:And>
             """
-    elif search_type == "DateTimeSent" and date_from and date_to:
+    elif type == "DateTimeSent" and start and end:
         search_condition = f"""
                 <t:And>
                   <t:IsGreaterThanOrEqualTo>
                       <t:FieldURI FieldURI="item:DateTimeSent" />
                       <t:FieldURIOrConstant>
-                        <t:Constant Value="{date_from}" />
+                        <t:Constant Value="{start}" />
                       </t:FieldURIOrConstant>
                     </t:IsGreaterThanOrEqualTo>
                   <t:IsLessThanOrEqualTo>
                       <t:FieldURI FieldURI="item:DateTimeSent" />
                       <t:FieldURIOrConstant>
-                        <t:Constant Value="{date_to}" />
+                        <t:Constant Value="{end}" />
                       </t:FieldURIOrConstant>
                   </t:IsLessThanOrEqualTo>
                 </t:And>
             """
     else:
-        raise ValueError("Invalid search_type or missing date range for 'date' search")
+        raise ValueError("Invalid type or missing date range for 'date' search")
 
     soap_body = load_template(template_file, folderpath=folder_path, search_condition=search_condition, max_count=100, offset=0)
     response = send_soap_request(session, host, soap_body)
@@ -189,10 +189,10 @@ def main():
     parser.add_argument("--proxy", help="HTTP代理")
 
     # New arguments for search command
-    parser.add_argument("--search_type", choices=["keyword", "DateTimeReceived", "DateTimeSent"], help="搜索类型")
+    parser.add_argument("--type", choices=["keyword", "DateTimeReceived", "DateTimeSent"], help="搜索类型")
     parser.add_argument("--keyword", help="搜索关键词")
-    parser.add_argument("--date_from", help="搜索起始日期")
-    parser.add_argument("--date_to",default=datetime.today().strftime('%Y-%m-%d'), help="搜索截止日期")
+    parser.add_argument("--start", help="搜索起始日期")
+    parser.add_argument("--end",default=datetime.today().strftime('%Y-%m-%d'), help="搜索截止日期")
 
     args = parser.parse_args()
 
@@ -235,29 +235,31 @@ def main():
         save_path = os.path.join(os.getcwd(), args.username, folder)
         download_email(session, args.host, folder, save_path)
     elif args.command == "search":
-        if not args.search_type:
-            logging.error("必须指定搜索类型（--search_type）")
+        if not args.type:
+            logging.error("必须指定搜索类型（--type）")
             sys.exit(1)
 
-        if args.search_type == "keyword" and not args.keyword:
+        if args.type == "keyword" and not args.keyword:
             logging.error("必须指定搜索关键词（--keyword）")
             sys.exit(1)
 
-        if (args.search_type == "DateTimeReceived" or args.search_type == "DateTimeSent") and not args.date_from and not args.date_to:
-            logging.error("必须指定起始日期（--date_from）或截止日期（--date_to）")
+        if (args.type == "DateTimeReceived" or args.type == "DateTimeSent") and not args.start and not args.end:
+            logging.error("必须指定起始日期（--start）或截止日期（--end）")
             sys.exit(1)
 
         # Prepare search parameters
 
         save_path = os.path.join(os.getcwd(), args.username)
-        if args.search_type == "keyword":
+        if args.type == "keyword":
             save_path = os.path.join(save_path, f"Search-{escape_filename(args.keyword)}")
-        elif args.search_type == "DateTimeReceived" or args.search_type == "DateTimeSent":
+            logging.info(f"开始搜索标题和正文中包含 {args.keyword} 关键字的邮件")
+        elif args.type == "DateTimeReceived" or args.type == "DateTimeSent":
             save_path = os.path.join(save_path,
-                                     f"Search-{args.search_type}--{escape_filename(args.date_from)} - {escape_filename(args.date_to)}")
+                                     f"Search-{args.type}--{escape_filename(args.start)} - {escape_filename(args.end)}")
+            logging.info(f"开始搜索日期从 {args.start} 到 {args.end} 的邮件")
 
         for folder in ['inbox', 'sentitems']:
-            search_emails(session, args.host, folder, args.search_type, args.keyword, args.date_from, args.date_to,
+            search_emails(session, args.host, folder, args.type, args.keyword, args.start, args.end,
                           os.path.join(save_path, folder))
 
 if __name__ == "__main__":
