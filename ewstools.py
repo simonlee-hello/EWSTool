@@ -233,6 +233,7 @@ def search_emails(session, host, folder_path, type, keyword, start, end, save_pa
     else:
         raise ValueError("Invalid type or missing date range for 'date' search")
     # 循环分页获取邮件
+
     while True:
         soap_body = load_template(
             template_file, folder_path=folder_path,
@@ -255,11 +256,16 @@ def search_emails(session, host, folder_path, type, keyword, start, end, save_pa
         for item in items:
             save_single_email(session, host, item.get('Id'), item.get('ChangeKey'), save_path)
 
+        if len(items) < max_count:
+            offset += len(items)
+            break
+
         # 更新偏移量，处理下一页
         offset += max_count
         logging.info(f"已处理 {offset} 封邮件，继续下一页...")
 
     logging.info(f"所有邮件下载完成，保存路径：{save_path}")
+    logging.info(f"符合条件的邮件下载完成, 共下载 {offset} 封邮件, 所有文件保存路径：{save_path}")
 
 def main():
     parser = argparse.ArgumentParser(description="EWS工具")
