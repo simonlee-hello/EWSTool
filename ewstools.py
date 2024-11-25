@@ -85,23 +85,26 @@ def save_email_to_file(path, content):
         logging.error(f"无法保存邮件: {path}")
         raise e
 
+
 def find_all_people(session, host, query):
     """查找所有人员"""
-    # 加载模板文件
     template_file = os.path.join(TEMPLATES_FOLDER, "FindAllPeople.xml")
     soap_body = load_template(template_file, string=query)
-
-    # 发送SOAP请求
     response = send_soap_request(session, host, soap_body)
+    people = []
+    root = ET.fromstring(response.content)
 
-    # 解析XML响应内容
-    addresses = set()
-    root = ET.fromstring(response.content)  # 将响应内容转为XML根节点
-    # 遍历所有 <m:Address> 元素并提取地址
-    for address in root.findall(".//m:Address", namespaces=EXCHANGE_NAMESPACE):
-        addresses.add(address.text)  # 将地址添加到集合中
+    # 遍历所有 Persona 元素并提取人员信息
+    for persona in root.findall(".//m:Persona", namespaces=EXCHANGE_NAMESPACE):
+        person_info = {
+            'DisplayName': persona.findtext(".//m:DisplayName", namespaces=EXCHANGE_NAMESPACE),
+            'Surname': persona.findtext(".//m:Surname", namespaces=EXCHANGE_NAMESPACE),
+            'EmailAddress': persona.findtext(".//m:EmailAddress/m:EmailAddress", namespaces=EXCHANGE_NAMESPACE)
+        }
+        people.append(person_info)
 
-    return addresses  # 返回地址集合
+    return people
+
 
 def download_email(session, host, folder, save_path):
     """下载指定文件夹中的邮件"""
@@ -197,7 +200,7 @@ def main():
     parser.add_argument("--proxy", help="HTTP代理")
 
     # command to get all people`s email
-    parser.add_argument("--people", required=False, help="获取所有人员的邮箱地址")
+    parser.add_argument("--people", type=bool, required=False, help="获取所有人员的邮箱地址")
     # command to download emails
     # parser.add_argument("--download", required=False, help="下载指定文件夹的邮箱")
     parser.add_argument("--download", required=False, choices=["inbox", "sentitems"], help="下载指定邮箱文件夹的邮件")
@@ -226,23 +229,34 @@ def main():
 
     if args.people:
         logging.info("查找所有人员")
-        all_results = set()
+        all_results = []
 
         # 遍历 a-z 进行查找
         for char in "abcdefghijklmnopqrstuvwxyz":
             logging.info(f"正在查找: {char}")
             results = find_all_people(session, args.host, char)
-            all_results.update(results)
+            logging.info(f"找到 {len(results)} 条人员信息: {results}")  # 打印返回的结果
+            all_results.extend(results)  # 使用 extend 来合并结果
 
         # 将结果写入文件
-        with open("emails.txt", "w", encoding="utf-8") as file:
+        with open("people_info.txt", "w", encoding="utf-8") as file:
             # 计算地址的数量
             total_count = len(all_results)
-            for addr in sorted(all_results):
-                file.write(addr + "\n")
-                logging.info(addr)
+
+            # 按照 DisplayName 和 Surname 排序
+            sorted_results = sorted(all_results, key=lambda x: (x.get('DisplayName', ''), x.get('Surname', '')))
+
+            # 将每个结果写入文件
+            for person in sorted_results:
+                file.write(
+                    f"显示名: {person.get('DisplayName', 'N/A')}, 姓氏: {person.get('Surname', 'N/A')}, 邮箱: {person.get('EmailAddress', 'N/A')}\n")
+                logging.info(
+                    f"显示名: {person.get('DisplayName', 'N/A')}, 姓氏: {person.get('Surname', 'N/A')}, 邮箱: {person.get('EmailAddress', 'N/A')}")
+
             # 打印总数量
-            logging.info(f"共计 {total_count} 个结果已写入文件 emails.txt")
+            logging.info(f"共计 {total_count} 个结果已写入文件 people_info.txt")
+
+
     elif args.download:
         save_path = os.path.join(os.getcwd(), args.username, args.download)
         download_email(session, args.host, args.download, save_path)
