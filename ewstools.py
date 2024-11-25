@@ -255,7 +255,7 @@ def main():
             logging.info(f"开始搜索标题和正文中包含 {args.keyword} 关键字的邮件")
         elif args.type == "DateTimeReceived" or args.type == "DateTimeSent":
             save_path = os.path.join(save_path,
-                                     f"Search-{args.type}--{escape_filename(args.start)} - {escape_filename(args.end)}")
+                                     f"Search-{args.type}-From-{escape_filename(args.start)}-To-{escape_filename(args.end)}")
             logging.info(f"开始搜索日期从 {args.start} 到 {args.end} 的邮件")
 
         for folder in ['inbox', 'sentitems']:

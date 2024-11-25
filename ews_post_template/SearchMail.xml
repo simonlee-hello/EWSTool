@@ -7,13 +7,13 @@
     <m:FindItem Traversal='Shallow'>
       <m:ItemShape>
         <t:BaseShape>IdOnly</t:BaseShape>
-        <t:AdditionalProperties>
-          <t:FieldURI FieldURI="item:Subject" />
-          <t:FieldURI FieldURI="item:DateTimeReceived" />
-          <t:FieldURI FieldURI="item:Size" />
-          <t:FieldURI FieldURI="item:Importance" />
-          <t:FieldURI FieldURI="message:IsRead" />
-        </t:AdditionalProperties>
+<!--        <t:AdditionalProperties>-->
+<!--          <t:FieldURI FieldURI="item:Subject" />-->
+<!--          <t:FieldURI FieldURI="item:DateTimeReceived" />-->
+<!--          <t:FieldURI FieldURI="item:Size" />-->
+<!--          <t:FieldURI FieldURI="item:Importance" />-->
+<!--          <t:FieldURI FieldURI="message:IsRead" />-->
+<!--        </t:AdditionalProperties>-->
       </m:ItemShape>
       <m:IndexedPageItemView MaxEntriesReturned="${max_count}" Offset="${offset}" BasePoint="Beginning" />
       <m:Restriction>
