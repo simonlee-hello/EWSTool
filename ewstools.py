@@ -186,6 +186,13 @@ def main():
     parser.add_argument("--hash", required=False, help="哈希")
     parser.add_argument("--command", required=True, choices=["download", "people", "search"], help="命令")
     parser.add_argument("--proxy", help="HTTP代理")
+
+    # New arguments for search command
+    parser.add_argument("--search_type", choices=["keyword", "DateTimeReceived", "DateTimeSent"], help="搜索类型")
+    parser.add_argument("--keyword", help="搜索关键词")
+    parser.add_argument("--date_from", help="搜索起始日期")
+    parser.add_argument("--date_to", help="搜索截止日期")
+
     args = parser.parse_args()
 
     # password = args.password.upper() if args.mode == "hash" else args.password
@@ -227,23 +234,36 @@ def main():
         save_path = os.path.join(os.getcwd(), args.username, folder)
         download_email(session, args.host, folder, save_path)
     elif args.command == "search":
-        search_type = input("请输入搜索类型, 比如keyword, DateTimeReceived, DateTimeSent: ")
-        keyword, date_from, date_to, save_path = "","","",""
-        if search_type == "keyword":
-            keyword = input("请输入搜索关键词, 比如password: ")
-            save_path = os.path.join(os.getcwd(), args.username, f"Search-{escape_filename(keyword)}")
-        elif search_type == "DateTimeReceived":
-            date_from = input("请输入收件起始日期, 比如 2024-01-01: ")
-            date_to = input("请输入收件截止日期, 比如 2024-01-01: ")
-            save_path = os.path.join(os.getcwd(), args.username,
-                                     f"Search-DateTimeReceived--{escape_filename(date_from)} - {escape_filename(date_to)}")
-        elif search_type == "DateTimeSent":
-            date_from = input("请输入发件起始日期, 比如 2024-01-01: ")
-            date_to = input("请输入发件截止日期, 比如 2024-01-01: ")
-            save_path = os.path.join(os.getcwd(), args.username,
-                                 f"Search-DateTimeSent--{escape_filename(date_from)} - {escape_filename(date_to)}")
+        if not args.search_type:
+            logging.error("必须指定搜索类型（--search_type）")
+            sys.exit(1)
+
+        if args.search_type == "keyword" and not args.keyword:
+            logging.error("必须指定搜索关键词（--keyword）")
+            sys.exit(1)
+
+        if (args.search_type == "DateTimeReceived" or args.search_type == "DateTimeSent") and not args.date_from and not args.date_to:
+            logging.error("必须指定起始日期（--date_from）和截止日期（--date_to）")
+            sys.exit(1)
+
+        # Prepare search parameters
+        date_from = ''
+        date_to = ''
+        if args.date_from:
+            date_from = args.date_from
+        if args.date_to:
+            date_to = args.date_to
+
+        save_path = os.path.join(os.getcwd(), args.username)
+        if args.search_type == "keyword":
+            save_path = os.path.join(save_path, f"Search-{escape_filename(args.keyword)}")
+        elif args.search_type == "DateTimeReceived" or args.search_type == "DateTimeSent":
+            save_path = os.path.join(save_path,
+                                     f"Search-{args.search_type}--{escape_filename(date_from)} - {escape_filename(date_to)}")
+
         for folder in ['inbox', 'sentitems']:
-            search_emails(session, args.host, folder, search_type, keyword, date_from, date_to, os.path.join(save_path, folder))
+            search_emails(session, args.host, folder, args.search_type, args.keyword, date_from, date_to,
+                          os.path.join(save_path, folder))
 
 if __name__ == "__main__":
     main()
