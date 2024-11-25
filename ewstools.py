@@ -132,7 +132,7 @@ def download_email(session, host, folder, save_path):
 
     # Step 2: 分页下载邮件
     template_file = os.path.join(TEMPLATES_FOLDER, "ListMailOfFolder.xml")
-    size = 100  # 每页的邮件数量
+    size = 50  # 每页的邮件数量
     offset = 0  # 初始偏移量
 
     while offset < total_count:
@@ -170,7 +170,7 @@ def save_single_email(session, host, email_id, change_key, save_path):
 def search_emails(session, host, folder_path, type, keyword, start, end, save_path):
     """按关键字搜索邮件"""
     template_file = os.path.join(TEMPLATES_FOLDER, "SearchMail.xml")
-    max_count = 100  # 每页最大邮件数
+    max_count = 50  # 每页最大邮件数
     offset = 0  # 起始偏移量
     if type == "keyword" and keyword:
         search_condition = f"""
