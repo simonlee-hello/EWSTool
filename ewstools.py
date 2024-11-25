@@ -133,8 +133,6 @@ def search_emails(session, host, folder_path, search_type, keyword, date_from, d
                 </t:Or>
             """
     elif search_type == "DateTimeReceived" and date_from and date_to:
-        start_date_str = date_from.strftime('%Y-%m-%dT%H:%M:%SZ')
-        end_date_str = date_to.strftime('%Y-%m-%dT%H:%M:%SZ')
         search_condition = f"""
                 <t:And>
                   <t:IsGreaterThanOrEqualTo>
@@ -152,8 +150,6 @@ def search_emails(session, host, folder_path, search_type, keyword, date_from, d
                 </t:And>
             """
     elif search_type == "DateTimeSent" and date_from and date_to:
-        start_date_str = date_from.strftime('%Y-%m-%dT%H:%M:%SZ')
-        end_date_str = date_to.strftime('%Y-%m-%dT%H:%M:%SZ')
         search_condition = f"""
                 <t:And>
                   <t:IsGreaterThanOrEqualTo>
@@ -239,9 +235,13 @@ def main():
         elif search_type == "DateTimeReceived":
             date_from = input("请输入收件起始日期, 比如 2024-01-01: ")
             date_to = input("请输入收件截止日期, 比如 2024-01-01: ")
+            save_path = os.path.join(os.getcwd(), args.username,
+                                     f"Search-DateTimeReceived--{escape_filename(date_from) - escape_filename(date_to)}")
         elif search_type == "DateTimeSent":
             date_from = input("请输入发件起始日期, 比如 2024-01-01: ")
             date_to = input("请输入发件截止日期, 比如 2024-01-01: ")
+            save_path = os.path.join(os.getcwd(), args.username,
+                                 f"Search-DateTimeSent--{escape_filename(date_from) - escape_filename(date_to)}")
         for folder in ['inbox', 'sentitems']:
             search_emails(session, args.host, folder, search_type, keyword, date_from, date_to, os.path.join(save_path, folder))
 
