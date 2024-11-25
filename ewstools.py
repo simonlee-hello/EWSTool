@@ -101,24 +101,61 @@ def find_all_people(session, host, query):
             display_name = persona.findtext(".//t:DisplayName", namespaces=EXCHANGE_NAMESPACE)
             surname = persona.findtext(".//t:Surname", namespaces=EXCHANGE_NAMESPACE)
             email_address = persona.findtext(".//t:EmailAddress/t:EmailAddress", namespaces=EXCHANGE_NAMESPACE)
-            person_info = f"{display_name} - {surname} - {email_address}"
+            person_info = f"显示名: {display_name}, 姓氏: {surname}, 邮箱: {email_address}"
             peoples.add(person_info)
             emails.add(email_address)
 
     return peoples, emails
 
-
-def download_email(session, host, folder, save_path):
-    """下载指定文件夹中的邮件"""
-    template_file = os.path.join(TEMPLATES_FOLDER, "ListMailOfFolder.xml")
-    soap_body = load_template(template_file, folder=folder, size="50", offset="0")
+def get_email_count(session, host, folder):
+    """获取指定文件夹中的邮件总数"""
+    template_file = os.path.join(TEMPLATES_FOLDER, "GetSizeOfFolder.xml")
+    soap_body = load_template(template_file, folder=folder)
     response = send_soap_request(session, host, soap_body)
 
-    items = ET.fromstring(response.content).findall(".//t:ItemId", EXCHANGE_NAMESPACE)
-    for item in items:
-        email_id = item.get("Id")
-        change_key = item.get("ChangeKey")
-        save_single_email(session, host, email_id, change_key, save_path)
+    # 解析文件夹的邮件总数
+    folder_item_count = ET.fromstring(response.content).find(".//t:TotalCount", EXCHANGE_NAMESPACE)
+    if folder_item_count is not None:
+        return int(folder_item_count.text)
+    else:
+        logging.warning(f"无法获取文件夹 {folder} 的邮件总数，默认为 0。")
+        return 0
+
+def download_email(session, host, folder, save_path):
+    # Step 1: 获取文件夹中邮件的总数量
+    total_count = get_email_count(session, host, folder)
+    if total_count == 0:
+        logging.info(f"文件夹 {folder} 中没有邮件，无需下载。")
+        return
+
+    logging.info(f"文件夹 {folder} 中有 {total_count} 封邮件，准备下载...")
+
+    # Step 2: 分页下载邮件
+    template_file = os.path.join(TEMPLATES_FOLDER, "ListMailOfFolder.xml")
+    size = 100  # 每页的邮件数量
+    offset = 0  # 初始偏移量
+
+    while offset < total_count:
+        # 使用模板生成 SOAP 请求体
+        soap_body = load_template(template_file, folder=folder, size=str(size), offset=str(offset))
+        response = send_soap_request(session, host, soap_body)
+
+        # 解析返回的邮件列表
+        items = ET.fromstring(response.content).findall(".//t:ItemId", EXCHANGE_NAMESPACE)
+        if not items:
+            break
+
+        # 下载当前批次的邮件
+        for item in items:
+            email_id = item.get("Id")
+            change_key = item.get("ChangeKey")
+            save_single_email(session, host, email_id, change_key, save_path)
+
+        # 增加偏移量以获取下一页
+        offset += size
+        logging.info(f"已下载 {offset} 封邮件，继续下一页...")
+
+    logging.info(f"邮件下载完成，所有文件保存路径：{save_path}")
 
 def save_single_email(session, host, email_id, change_key, save_path):
     """保存单封邮件"""
@@ -194,11 +231,9 @@ def search_emails(session, host, folder_path, type, keyword, start, end, save_pa
 def main():
     parser = argparse.ArgumentParser(description="EWS工具")
     parser.add_argument("--host", required=True, help="目标Exchange服务器")
-    # parser.add_argument("--mode", required=True, choices=["plaintext", "hash"], help="认证模式")
     parser.add_argument("--username", required=True, help="用户名")
     parser.add_argument("--password", required=False, help="明文密码")
     parser.add_argument("--hash", required=False, help="哈希")
-    # parser.add_argument("--command", required=True, choices=["download", "people", "search"], help="命令")
     parser.add_argument("--proxy", help="HTTP代理")
 
     # command to get all people`s email
@@ -215,7 +250,6 @@ def main():
 
     args = parser.parse_args()
 
-    # password = args.password.upper() if args.mode == "hash" else args.password
     if args.password:
         password_or_hash = args.password
     elif args.hash:
@@ -238,7 +272,6 @@ def main():
         for char in "abcdefghijklmnopqrstuvwxyz":
             logging.info(f"正在查找: {char}")
             peoples, emails = find_all_people(session, args.host, char)
-            logging.info(f"找到 {len(peoples)} 条人员信息")  # 打印返回的结果
             all_people.extend(peoples)  # 使用 extend 来合并结果
             all_email.extend(emails)  # 使用 extend 来合并结果
 
