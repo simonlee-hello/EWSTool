@@ -185,8 +185,14 @@ def main():
     parser.add_argument("--username", required=True, help="用户名")
     parser.add_argument("--password", required=False, help="明文密码")
     parser.add_argument("--hash", required=False, help="哈希")
-    parser.add_argument("--command", required=True, choices=["download", "people", "search"], help="命令")
+    # parser.add_argument("--command", required=True, choices=["download", "people", "search"], help="命令")
     parser.add_argument("--proxy", help="HTTP代理")
+
+    # command to get all people`s email
+    parser.add_argument("--people", required=False, help="获取所有人员的邮箱地址")
+    # command to download emails
+    parser.add_argument("--download", required=False, help="下载指定文件夹的邮箱")
+    parser.add_argument("--folder", default="inbox", required=False, choices=["inbox", "sentitems"], help="指定邮箱文件夹")
 
     # New arguments for search command
     parser.add_argument("--type", choices=["keyword", "DateTimeReceived", "DateTimeSent"], help="搜索类型")
@@ -210,7 +216,7 @@ def main():
     session.auth = HttpNtlmAuth(args.username, password_or_hash)
     session.proxies = proxies
 
-    if args.command == "people":
+    if args.people:
         logging.info("查找所有人员")
         all_results = set()
 
@@ -229,37 +235,31 @@ def main():
                 logging.info(addr)
             # 打印总数量
             logging.info(f"共计 {total_count} 个结果已写入文件 emails.txt")
-    elif args.command == "download":
-        logging.info("可用的文件夹如下：inbox, sentitems")
-        folder = input("请输入文件夹名称: ")
-        save_path = os.path.join(os.getcwd(), args.username, folder)
-        download_email(session, args.host, folder, save_path)
-    elif args.command == "search":
-        if not args.type:
-            logging.error("必须指定搜索类型（--type）")
-            sys.exit(1)
-
-        if args.type == "keyword" and not args.keyword:
+    elif args.download:
+        save_path = os.path.join(os.getcwd(), args.username, args.folder)
+        download_email(session, args.host, args.folder, save_path)
+    elif args.search:
+        if args.search == "keyword" and not args.keyword:
             logging.error("必须指定搜索关键词（--keyword）")
             sys.exit(1)
 
-        if (args.type == "DateTimeReceived" or args.type == "DateTimeSent") and not args.start and not args.end:
+        if (args.search == "DateTimeReceived" or args.search == "DateTimeSent") and not args.start and not args.end:
             logging.error("必须指定起始日期（--start）或截止日期（--end）")
             sys.exit(1)
 
         # Prepare search parameters
 
         save_path = os.path.join(os.getcwd(), args.username)
-        if args.type == "keyword":
+        if args.search == "keyword":
             save_path = os.path.join(save_path, f"Search-{escape_filename(args.keyword)}")
             logging.info(f"开始搜索标题和正文中包含 {args.keyword} 关键字的邮件")
-        elif args.type == "DateTimeReceived" or args.type == "DateTimeSent":
+        elif args.search == "DateTimeReceived" or args.search == "DateTimeSent":
             save_path = os.path.join(save_path,
-                                     f"Search-{args.type}-From-{escape_filename(args.start)}-To-{escape_filename(args.end)}")
+                                     f"Search-{args.search}-From-{escape_filename(args.start)}-To-{escape_filename(args.end)}")
             logging.info(f"开始搜索日期从 {args.start} 到 {args.end} 的邮件")
 
         for folder in ['inbox', 'sentitems']:
-            search_emails(session, args.host, folder, args.type, args.keyword, args.start, args.end,
+            search_emails(session, args.host, folder, args.search, args.keyword, args.start, args.end,
                           os.path.join(save_path, folder))
 
 if __name__ == "__main__":
