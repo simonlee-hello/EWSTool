@@ -160,11 +160,14 @@ def download_email(session, host, folder, save_path):
             change_key = item.get("ChangeKey")
             save_single_email(session, host, email_id, change_key, save_path)
 
+        if total_count < size:
+            logging.info(f"已下载 {total_count} 封邮件")
+            break
         # 增加偏移量以获取下一页
         offset += size
         logging.info(f"已下载 {offset} 封邮件，继续下一页...")
 
-    logging.info(f"邮件下载完成，所有文件保存路径：{save_path}")
+    logging.info(f"邮件下载完成, 共下载 {total_count} 封邮件, 所有文件保存路径：{save_path}")
 
 def save_single_email(session, host, email_id, change_key, save_path):
     """保存单封邮件"""
