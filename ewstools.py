@@ -236,12 +236,12 @@ def main():
             date_from = input("请输入收件起始日期, 比如 2024-01-01: ")
             date_to = input("请输入收件截止日期, 比如 2024-01-01: ")
             save_path = os.path.join(os.getcwd(), args.username,
-                                     f"Search-DateTimeReceived--{escape_filename(date_from) - escape_filename(date_to)}")
+                                     f"Search-DateTimeReceived--{escape_filename(date_from)} - {escape_filename(date_to)}")
         elif search_type == "DateTimeSent":
             date_from = input("请输入发件起始日期, 比如 2024-01-01: ")
             date_to = input("请输入发件截止日期, 比如 2024-01-01: ")
             save_path = os.path.join(os.getcwd(), args.username,
-                                 f"Search-DateTimeSent--{escape_filename(date_from) - escape_filename(date_to)}")
+                                 f"Search-DateTimeSent--{escape_filename(date_from)} - {escape_filename(date_to)}")
         for folder in ['inbox', 'sentitems']:
             search_emails(session, args.host, folder, search_type, keyword, date_from, date_to, os.path.join(save_path, folder))
 
