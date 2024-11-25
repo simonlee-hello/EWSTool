@@ -173,7 +173,7 @@ def search_emails(session, host, folder_path, search_type, keyword, date_from, d
     else:
         raise ValueError("Invalid search_type or missing date range for 'date' search")
 
-    soap_body = load_template(template_file, folderpath=folder_path, search_condition=search_condition)
+    soap_body = load_template(template_file, folderpath=folder_path, search_condition=search_condition, max_count=100, offset=0)
     response = send_soap_request(session, host, soap_body)
 
     root = ET.fromstring(response.content)
