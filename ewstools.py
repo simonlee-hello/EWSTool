@@ -191,11 +191,11 @@ def main():
     # command to get all people`s email
     parser.add_argument("--people", required=False, help="获取所有人员的邮箱地址")
     # command to download emails
-    parser.add_argument("--download", required=False, help="下载指定文件夹的邮箱")
-    parser.add_argument("--folder", default="inbox", required=False, choices=["inbox", "sentitems"], help="指定邮箱文件夹")
+    # parser.add_argument("--download", required=False, help="下载指定文件夹的邮箱")
+    parser.add_argument("--download", default="inbox", required=False, choices=["inbox", "sentitems"], help="下载指定邮箱文件夹的邮件")
 
     # New arguments for search command
-    parser.add_argument("--type", choices=["keyword", "DateTimeReceived", "DateTimeSent"], help="搜索类型")
+    parser.add_argument("--search", choices=["keyword", "DateTimeReceived", "DateTimeSent"], help="搜索类型")
     parser.add_argument("--keyword", help="搜索关键词")
     parser.add_argument("--start", help="搜索起始日期")
     parser.add_argument("--end",default=datetime.today().strftime('%Y-%m-%d'), help="搜索截止日期")
@@ -236,8 +236,8 @@ def main():
             # 打印总数量
             logging.info(f"共计 {total_count} 个结果已写入文件 emails.txt")
     elif args.download:
-        save_path = os.path.join(os.getcwd(), args.username, args.folder)
-        download_email(session, args.host, args.folder, save_path)
+        save_path = os.path.join(os.getcwd(), args.username, args.download)
+        download_email(session, args.host, args.download, save_path)
     elif args.search:
         if args.search == "keyword" and not args.keyword:
             logging.error("必须指定搜索关键词（--keyword）")
