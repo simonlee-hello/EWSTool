@@ -140,13 +140,13 @@ def search_emails(session, host, folder_path, search_type, keyword, date_from, d
                   <t:IsGreaterThanOrEqualTo>
                       <t:FieldURI FieldURI="item:DateTimeReceived" />
                       <t:FieldURIOrConstant>
-                        <t:Constant Value="${start_date_str}" />
+                        <t:Constant Value="{date_from}" />
                       </t:FieldURIOrConstant>
                     </t:IsGreaterThanOrEqualTo>
                   <t:IsLessThanOrEqualTo>
                       <t:FieldURI FieldURI="item:DateTimeReceived" />
                       <t:FieldURIOrConstant>
-                        <t:Constant Value="${end_date_str}" />
+                        <t:Constant Value="{date_to}" />
                       </t:FieldURIOrConstant>
                   </t:IsLessThanOrEqualTo>
                 </t:And>
@@ -159,13 +159,13 @@ def search_emails(session, host, folder_path, search_type, keyword, date_from, d
                   <t:IsGreaterThanOrEqualTo>
                       <t:FieldURI FieldURI="item:DateTimeSent" />
                       <t:FieldURIOrConstant>
-                        <t:Constant Value="${start_date_str}" />
+                        <t:Constant Value="{date_from}" />
                       </t:FieldURIOrConstant>
                     </t:IsGreaterThanOrEqualTo>
                   <t:IsLessThanOrEqualTo>
                       <t:FieldURI FieldURI="item:DateTimeSent" />
                       <t:FieldURIOrConstant>
-                        <t:Constant Value="${end_date_str}" />
+                        <t:Constant Value="{date_to}" />
                       </t:FieldURIOrConstant>
                   </t:IsLessThanOrEqualTo>
                 </t:And>
