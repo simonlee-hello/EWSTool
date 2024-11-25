@@ -48,6 +48,12 @@ def load_template(template_file, **kwargs):
         with open(template_file, 'r') as file:
             template = Template(file.read())
             return template.substitute(kwargs)
+    except FileNotFoundError:
+        logging.error(f"模板文件未找到: {template_file}")
+        raise
+    except KeyError as e:
+        logging.error(f"模板替换时缺少参数: {e}")
+        raise
     except IOError as e:
         logging.error(f"无法读取模板文件: {template_file}")
         raise e
@@ -58,20 +64,23 @@ def send_soap_request(session, host, soap_body, retries=3, delay=2):
     url = f"{HTTP_PROTO}://{host}/ews/exchange.asmx"
 
     for attempt in range(retries):
-        response = session.post(url, data=soap_body, headers=HEADERS, verify=False)
+        try:
+            response = session.post(url, data=soap_body, headers=HEADERS, verify=False)
 
-        if response.status_code == 200 and "NoError" in response.text:
-            return response
+            if response.status_code == 200 and "NoError" in response.text:
+                return response
 
-        if response.status_code == 401:
-            logging.warning(f"认证失败，重试 {attempt + 1}/{retries} 次")
-            time.sleep(delay)  # 在重试前等待一段时间
+            if response.status_code == 401:
+                logging.warning(f"认证失败，重试 {attempt + 1}/{retries} 次")
+                time.sleep(delay)  # 在重试前等待一段时间
 
-        else:
-            logging.error(f"请求失败: {response.status_code} - {response.text}")
-            break
+            else:
+                logging.error(f"请求失败: {response.status_code} - {response.text}")
+                break
+        except requests.RequestException as e:
+            logging.error(f"请求发生异常: {e}")
 
-    logging.error(f"认证失败，已达到最大重试次数 ({retries})")
+    logging.error(f"请求失败，已达到最大重试次数 ({retries})")
     sys.exit(1)
 
 def save_email_to_file(path, content):
@@ -91,11 +100,11 @@ def find_all_people(session, host, query):
     template_file = os.path.join(TEMPLATES_FOLDER, "FindAllPeople.xml")
     soap_body = load_template(template_file, string=query)
     response = send_soap_request(session, host, soap_body)
-    peoples = set()
-    emails = set()
     root = ET.fromstring(response.content)
 
     # 遍历所有 Persona 元素并提取人员信息
+    peoples = set()
+    emails = set()
     for persona in root.findall(".//t:Persona", namespaces=EXCHANGE_NAMESPACE):
 
             display_name = persona.findtext(".//t:DisplayName", namespaces=EXCHANGE_NAMESPACE)
@@ -224,7 +233,7 @@ def search_emails(session, host, folder_path, type, keyword, start, end, save_pa
     # 循环分页获取邮件
     while True:
         soap_body = load_template(
-            template_file, folderpath=folder_path,
+            template_file, folder_path=folder_path,
             search_condition=search_condition, max_count=max_count, offset=offset
         )
         response = send_soap_request(session, host, soap_body)
@@ -259,7 +268,7 @@ def main():
     parser.add_argument("--proxy", help="HTTP代理")
 
     # command to get all people`s email
-    parser.add_argument("--people", type=bool, required=False, help="获取所有人员的邮箱地址")
+    parser.add_argument("--people", action="store_true", required=False, help="获取所有人员信息及邮箱地址")
     # command to download emails
     # parser.add_argument("--download", required=False, help="下载指定文件夹的邮箱")
     parser.add_argument("--download", required=False, choices=["inbox", "sentitems", "all"], help="下载指定邮箱文件夹的邮件")
