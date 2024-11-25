@@ -170,6 +170,8 @@ def save_single_email(session, host, email_id, change_key, save_path):
 def search_emails(session, host, folder_path, type, keyword, start, end, save_path):
     """按关键字搜索邮件"""
     template_file = os.path.join(TEMPLATES_FOLDER, "SearchMail.xml")
+    max_count = 100  # 每页最大邮件数
+    offset = 0  # 起始偏移量
     if type == "keyword" and keyword:
         search_condition = f"""
                 <t:Or>
@@ -219,14 +221,34 @@ def search_emails(session, host, folder_path, type, keyword, start, end, save_pa
             """
     else:
         raise ValueError("Invalid type or missing date range for 'date' search")
+    # 循环分页获取邮件
+    while True:
+        soap_body = load_template(
+            template_file, folderpath=folder_path,
+            search_condition=search_condition, max_count=max_count, offset=offset
+        )
+        response = send_soap_request(session, host, soap_body)
 
-    soap_body = load_template(template_file, folderpath=folder_path, search_condition=search_condition, max_count=100, offset=0)
-    response = send_soap_request(session, host, soap_body)
+        # 解析返回结果
+        root = ET.fromstring(response.content)
+        items = root.findall(".//t:ItemId", EXCHANGE_NAMESPACE)
 
-    root = ET.fromstring(response.content)
-    items = root.findall(".//t:ItemId", EXCHANGE_NAMESPACE)
-    for item in items:
-        save_single_email(session, host, item.get('Id'), item.get('ChangeKey'), save_path)
+        # 如果没有更多结果，结束循环
+        if not items:
+            logging.info("搜索完成，没有更多结果。")
+            break
+
+        logging.info(f"获取到 {len(items)} 封邮件，正在下载...")
+
+        # 下载当前页的邮件
+        for item in items:
+            save_single_email(session, host, item.get('Id'), item.get('ChangeKey'), save_path)
+
+        # 更新偏移量，处理下一页
+        offset += max_count
+        logging.info(f"已处理 {offset} 封邮件，继续下一页...")
+
+    logging.info(f"所有邮件下载完成，保存路径：{save_path}")
 
 def main():
     parser = argparse.ArgumentParser(description="EWS工具")
@@ -240,7 +262,7 @@ def main():
     parser.add_argument("--people", type=bool, required=False, help="获取所有人员的邮箱地址")
     # command to download emails
     # parser.add_argument("--download", required=False, help="下载指定文件夹的邮箱")
-    parser.add_argument("--download", required=False, choices=["inbox", "sentitems"], help="下载指定邮箱文件夹的邮件")
+    parser.add_argument("--download", required=False, choices=["inbox", "sentitems", "all"], help="下载指定邮箱文件夹的邮件")
 
     # New arguments for search command
     parser.add_argument("--search", choices=["keyword", "DateTimeReceived", "DateTimeSent"], help="搜索类型")
@@ -294,8 +316,13 @@ def main():
 
 
     elif args.download:
-        save_path = os.path.join(os.getcwd(), args.username, args.download)
-        download_email(session, args.host, args.download, save_path)
+        if args.download == "all":
+            for folder in ['inbox', 'sentitems']:
+                save_path = os.path.join(os.getcwd(), args.username, folder)
+                download_email(session, args.host, folder, save_path)
+        else:
+            save_path = os.path.join(os.getcwd(), args.username, args.download)
+            download_email(session, args.host, args.download, save_path)
     elif args.search:
         if args.search == "keyword" and not args.keyword:
             logging.error("必须指定搜索关键词（--keyword）")
