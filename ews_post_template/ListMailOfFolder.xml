@@ -6,8 +6,7 @@
   <soap:Body>
     <m:FindItem Traversal="Shallow">
       <m:ItemShape>
-        <t:BaseShape>AllProperties</t:BaseShape>
-        <t:BodyType>Text</t:BodyType>
+        <t:BaseShape>IdOnly</t:BaseShape>
       </m:ItemShape>
       <m:IndexedPageItemView MaxEntriesReturned="${size}" Offset="${offset}" BasePoint="Beginning" />
       <m:ParentFolderIds>

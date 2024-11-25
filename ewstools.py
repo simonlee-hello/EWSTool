@@ -120,20 +120,22 @@ def get_folders(session, host):
     template_file = os.path.join(TEMPLATES_FOLDER, "ListFolder.xml")
     soap_body = load_template(template_file)
     response = send_soap_request(session, host, soap_body)
-    tree = ET.ElementTree(ET.fromstring(response.content))
-    root = tree.getroot()
-    folder_elements = root.findall('.//m:ResponseMessages/m:FindFolderResponse/m:ResponseMessage/m:Folders/t:Folder',
-                                   EXCHANGE_NAMESPACE)
+    root = ET.fromstring(response.content)
+    folder_elements = root.findall('.//t:Folder', namespaces=EXCHANGE_NAMESPACE)
     if not folder_elements:
         logging.info("没有找到文件夹。")
         return []
 
     folders = []
     for folder in folder_elements:
-        folder_name = folder.find('t:DisplayName', EXCHANGE_NAMESPACE).text
-        folder_id = folder.find('t:FolderId/t:Id', EXCHANGE_NAMESPACE).text
-        folders.append({'name': folder_name, 'id': folder_id})
-        logging.info(f"找到文件夹: {folder_name} (ID: {folder_id})")
+        folder_name = folder.findtext(".//t:DisplayName", namespaces=EXCHANGE_NAMESPACE)
+        folder_id = folder.find(".//t:FolderId", namespaces=EXCHANGE_NAMESPACE).get('Id')
+        folder_total_count = folder.findtext(".//t:TotalCount", namespaces=EXCHANGE_NAMESPACE)
+        folder_child_folder_count = folder.findtext(".//t:ChildFolderCount", namespaces=EXCHANGE_NAMESPACE)
+        folder_unread_count = folder.findtext(".//t:UnreadCount", namespaces=EXCHANGE_NAMESPACE)
+
+        folders.append({'name': folder_name, 'id': folder_id, 'total_count': folder_total_count, 'child_folder_count': folder_child_folder_count,'unread_count':folder_unread_count})
+        logging.info(f"找到文件夹: {folder_name} 邮件数量共计: {folder_total_count} 子文件夹数量: {folder_child_folder_count} 未读数量: {folder_unread_count}")
 
     return folders
 
@@ -350,9 +352,7 @@ def main():
                 file.write(f"{email}\n")
         logging.info(f"共计 {len(unique_emails)} 条唯一邮箱已保存到 'emails.txt'")
     elif args.folders:
-        folders = get_folders(session)
-        for folder in folders:
-            logging.info(f"folder: {folder}")
+        get_folders(session, args.host)
     elif args.download:
         if args.download == "all":
             for folder in ['inbox', 'sentitems']:
