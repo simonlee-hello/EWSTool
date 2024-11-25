@@ -1,0 +1,16 @@
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
+               xmlns:t="http://schemas.microsoft.com/exchange/services/2006/types">
+    <soap:Header>
+        <t:RequestServerVersion Version="Exchange2013_SP1" />
+    </soap:Header>
+    <soap:Body>
+        <FindFolder xmlns="http://schemas.microsoft.com/exchange/services/2006/messages" Traversal="Shallow">
+            <FolderShape>
+                <t:BaseShape>AllProperties</t:BaseShape>
+            </FolderShape>
+            <ParentFolderIds>
+                <t:DistinguishedFolderId Id="msgfolderroot" />
+            </ParentFolderIds>
+        </FindFolder>
+    </soap:Body>
+</soap:Envelope>

@@ -116,6 +116,27 @@ def find_all_people(session, host, query):
 
     return peoples, emails
 
+def get_folders(session, host):
+    template_file = os.path.join(TEMPLATES_FOLDER, "ListFolder.xml")
+    soap_body = load_template(template_file)
+    response = send_soap_request(session, host, soap_body)
+    tree = ET.ElementTree(ET.fromstring(response.content))
+    root = tree.getroot()
+    folder_elements = root.findall('.//m:ResponseMessages/m:FindFolderResponse/m:ResponseMessage/m:Folders/t:Folder',
+                                   EXCHANGE_NAMESPACE)
+    if not folder_elements:
+        logging.info("没有找到文件夹。")
+        return []
+
+    folders = []
+    for folder in folder_elements:
+        folder_name = folder.find('t:DisplayName', EXCHANGE_NAMESPACE).text
+        folder_id = folder.find('t:FolderId/t:Id', EXCHANGE_NAMESPACE).text
+        folders.append({'name': folder_name, 'id': folder_id})
+        logging.info(f"找到文件夹: {folder_name} (ID: {folder_id})")
+
+    return folders
+
 def get_email_count(session, host, folder):
     """获取指定文件夹中的邮件总数"""
     template_file = os.path.join(TEMPLATES_FOLDER, "GetSizeOfFolder.xml")
@@ -263,8 +284,6 @@ def search_emails(session, host, folder_path, type, keyword, start, end, save_pa
         # 更新偏移量，处理下一页
         offset += max_count
         logging.info(f"已处理 {offset} 封邮件，继续下一页...")
-
-    logging.info(f"所有邮件下载完成，保存路径：{save_path}")
     logging.info(f"符合条件的邮件下载完成, 共下载 {offset} 封邮件, 所有文件保存路径：{save_path}")
 
 def main():
@@ -277,10 +296,10 @@ def main():
 
     # command to get all people`s email
     parser.add_argument("--people", action="store_true", required=False, help="获取所有人员信息及邮箱地址")
+    # command to list the folder
+    parser.add_argument("--folders", required=False, action="store_true",help="获取文件夹列表")
     # command to download emails
-    # parser.add_argument("--download", required=False, help="下载指定文件夹的邮箱")
     parser.add_argument("--download", required=False, choices=["inbox", "sentitems", "all"], help="下载指定邮箱文件夹的邮件")
-
     # New arguments for search command
     parser.add_argument("--search", choices=["keyword", "DateTimeReceived", "DateTimeSent"], help="搜索类型")
     parser.add_argument("--keyword", help="搜索关键词")
@@ -330,8 +349,10 @@ def main():
             for email in unique_emails:
                 file.write(f"{email}\n")
         logging.info(f"共计 {len(unique_emails)} 条唯一邮箱已保存到 'emails.txt'")
-
-
+    elif args.folders:
+        folders = get_folders(session)
+        for folder in folders:
+            logging.info(f"folder: {folder}")
     elif args.download:
         if args.download == "all":
             for folder in ['inbox', 'sentitems']:
@@ -360,7 +381,7 @@ def main():
                                      f"Search-{args.search}-From-{escape_filename(args.start)}-To-{escape_filename(args.end)}")
             logging.info(f"开始搜索日期从 {args.start} 到 {args.end} 的邮件")
 
-        for folder in ['inbox', 'sentitems']:
+        for folder in ['sentitems']:
             search_emails(session, args.host, folder, args.search, args.keyword, args.start, args.end,
                           os.path.join(save_path, folder))
     else:
