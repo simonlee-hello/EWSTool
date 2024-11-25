@@ -164,11 +164,13 @@ def main():
 
         # 将结果写入文件
         with open("emails.txt", "w", encoding="utf-8") as file:
+            # 计算地址的数量
+            total_count = len(all_results)
             for addr in sorted(all_results):
                 file.write(addr + "\n")
                 logging.info(addr)
-
-        logging.info(f"所有结果已写入文件 emails.txt")
+            # 打印总数量
+            logging.info(f"共计 {total_count} 个结果已写入文件 emails.txt")
     elif args.command == "download":
 
         logging.info("可用的文件夹如下：inbox, sentitems")
