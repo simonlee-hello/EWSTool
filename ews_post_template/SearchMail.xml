@@ -15,19 +15,9 @@
           <t:FieldURI FieldURI="message:IsRead" />
         </t:AdditionalProperties>
       </m:ItemShape>
-      <m:IndexedPageItemView MaxEntriesReturned="100" Offset="0" BasePoint="Beginning" />
+      <m:IndexedPageItemView MaxEntriesReturned="${max_count}" Offset="${offset}" BasePoint="Beginning" />
       <m:Restriction>
-        <t:Or>
-          <t:Contains ContainmentMode="Substring" ContainmentComparison="IgnoreCase">
-            <t:FieldURI FieldURI="item:Subject" />
-            <t:Constant Value="${keyword}" />
-          </t:Contains>
-          <t:Contains ContainmentMode="Substring" ContainmentComparison="IgnoreCase">
-            <t:FieldURI FieldURI="item:Body" />
-            <t:Constant Value="${keyword}" />
-          </t:Contains>
-        </t:Or>
-
+          ${search_condition}
       </m:Restriction>
       <m:SortOrder>
         <t:FieldOrder Order="Descending">

