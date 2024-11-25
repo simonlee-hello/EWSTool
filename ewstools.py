@@ -58,7 +58,6 @@ def load_template(template_file, **kwargs):
         logging.error(f"无法读取模板文件: {template_file}")
         raise e
 
-
 def send_soap_request(session, host, soap_body, retries=3, delay=2):
     """发送SOAP请求并处理401错误"""
     url = f"{HTTP_PROTO}://{host}/ews/exchange.asmx"
@@ -93,7 +92,6 @@ def save_email_to_file(path, content):
     except IOError as e:
         logging.error(f"无法保存邮件: {path}")
         raise e
-
 
 def find_all_people(session, host, query):
     """查找所有人员"""
@@ -130,11 +128,12 @@ def get_folders(session, host):
     for folder in folder_elements:
         folder_name = folder.findtext(".//t:DisplayName", namespaces=EXCHANGE_NAMESPACE)
         folder_id = folder.find(".//t:FolderId", namespaces=EXCHANGE_NAMESPACE).get('Id')
+        folder_key = folder.find(".//t:FolderId", namespaces=EXCHANGE_NAMESPACE).get('ChangeKey')
         folder_total_count = folder.findtext(".//t:TotalCount", namespaces=EXCHANGE_NAMESPACE)
         folder_child_folder_count = folder.findtext(".//t:ChildFolderCount", namespaces=EXCHANGE_NAMESPACE)
         folder_unread_count = folder.findtext(".//t:UnreadCount", namespaces=EXCHANGE_NAMESPACE)
 
-        folders.append({'name': folder_name, 'id': folder_id, 'total_count': folder_total_count, 'child_folder_count': folder_child_folder_count,'unread_count':folder_unread_count})
+        folders.append({'name': folder_name, 'id': folder_id, 'key': folder_key, 'total_count': folder_total_count, 'child_folder_count': folder_child_folder_count,'unread_count':folder_unread_count})
         logging.info(f"找到文件夹: {folder_name} 邮件数量共计: {folder_total_count} 子文件夹数量: {folder_child_folder_count} 未读数量: {folder_unread_count}")
 
     return folders
@@ -305,8 +304,8 @@ def main():
     # New arguments for search command
     parser.add_argument("--search", choices=["keyword", "DateTimeReceived", "DateTimeSent"], help="搜索类型")
     parser.add_argument("--keyword", help="搜索关键词")
-    parser.add_argument("--start", help="搜索起始日期")
-    parser.add_argument("--end",default=datetime.today().strftime('%Y-%m-%d'), help="搜索截止日期")
+    parser.add_argument("--start", help="搜索邮件时的开始日期 (格式: YYYY-MM-DD)")
+    parser.add_argument("--end",default=datetime.today().strftime('%Y-%m-%d'), help="搜索邮件时的结束日期 (格式: YYYY-MM-DD)")
 
     args = parser.parse_args()
 
@@ -381,7 +380,7 @@ def main():
                                      f"Search-{args.search}-From-{escape_filename(args.start)}-To-{escape_filename(args.end)}")
             logging.info(f"开始搜索日期从 {args.start} 到 {args.end} 的邮件")
 
-        for folder in ['sentitems']:
+        for folder in ['inbox', 'sentitems']:
             search_emails(session, args.host, folder, args.search, args.keyword, args.start, args.end,
                           os.path.join(save_path, folder))
     else:
