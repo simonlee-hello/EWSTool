@@ -190,8 +190,8 @@ def main():
     # New arguments for search command
     parser.add_argument("--search_type", choices=["keyword", "DateTimeReceived", "DateTimeSent"], help="搜索类型")
     parser.add_argument("--keyword", help="搜索关键词")
-    parser.add_argument("--date_from", help="搜索起始日期")
-    parser.add_argument("--date_to", help="搜索截止日期")
+    parser.add_argument("--date_from", default='', help="搜索起始日期")
+    parser.add_argument("--date_to", default='', help="搜索截止日期")
 
     args = parser.parse_args()
 
@@ -243,26 +243,20 @@ def main():
             sys.exit(1)
 
         if (args.search_type == "DateTimeReceived" or args.search_type == "DateTimeSent") and not args.date_from and not args.date_to:
-            logging.error("必须指定起始日期（--date_from）和截止日期（--date_to）")
+            logging.error("必须指定起始日期（--date_from）或截止日期（--date_to）")
             sys.exit(1)
 
         # Prepare search parameters
-        date_from = ''
-        date_to = ''
-        if args.date_from:
-            date_from = args.date_from
-        if args.date_to:
-            date_to = args.date_to
 
         save_path = os.path.join(os.getcwd(), args.username)
         if args.search_type == "keyword":
             save_path = os.path.join(save_path, f"Search-{escape_filename(args.keyword)}")
         elif args.search_type == "DateTimeReceived" or args.search_type == "DateTimeSent":
             save_path = os.path.join(save_path,
-                                     f"Search-{args.search_type}--{escape_filename(date_from)} - {escape_filename(date_to)}")
+                                     f"Search-{args.search_type}--{escape_filename(args.date_from)} - {escape_filename(args.date_to)}")
 
         for folder in ['inbox', 'sentitems']:
-            search_emails(session, args.host, folder, args.search_type, args.keyword, date_from, date_to,
+            search_emails(session, args.host, folder, args.search_type, args.keyword, args.date_from, args.date_to,
                           os.path.join(save_path, folder))
 
 if __name__ == "__main__":
