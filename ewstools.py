@@ -192,7 +192,7 @@ def main():
     parser.add_argument("--people", required=False, help="获取所有人员的邮箱地址")
     # command to download emails
     # parser.add_argument("--download", required=False, help="下载指定文件夹的邮箱")
-    parser.add_argument("--download", default="inbox", required=False, choices=["inbox", "sentitems"], help="下载指定邮箱文件夹的邮件")
+    parser.add_argument("--download", required=False, choices=["inbox", "sentitems"], help="下载指定邮箱文件夹的邮件")
 
     # New arguments for search command
     parser.add_argument("--search", choices=["keyword", "DateTimeReceived", "DateTimeSent"], help="搜索类型")
@@ -261,6 +261,7 @@ def main():
         for folder in ['inbox', 'sentitems']:
             search_emails(session, args.host, folder, args.search, args.keyword, args.start, args.end,
                           os.path.join(save_path, folder))
-
+    else:
+        logging.warning("请输入功能参数!")
 if __name__ == "__main__":
     main()
