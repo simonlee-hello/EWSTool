@@ -65,7 +65,6 @@ def send_soap_request(session, host, soap_body, retries=3, delay=2):
 
         if response.status_code == 401:
             logging.warning(f"认证失败，重试 {attempt + 1}/{retries} 次")
-            session.auth = HttpNtlmAuth(session.auth.username, session.auth.password)
             time.sleep(delay)  # 在重试前等待一段时间
 
         else:
@@ -88,12 +87,21 @@ def save_email_to_file(path, content):
 
 def find_all_people(session, host, query):
     """查找所有人员"""
+    # 加载模板文件
     template_file = os.path.join(TEMPLATES_FOLDER, "FindAllPeople.xml")
     soap_body = load_template(template_file, string=query)
+
+    # 发送SOAP请求
     response = send_soap_request(session, host, soap_body)
 
-    addresses = set(re.findall(r"<Address>(.*?)</Address>", response.text))
-    return [re.search(r"<EmailAddress>(.*?)</EmailAddress>", addr).group(1) for addr in addresses if '<EmailAddress>' in addr]
+    # 解析XML响应内容
+    addresses = set()
+    root = ET.fromstring(response.content)  # 将响应内容转为XML根节点
+    # 遍历所有 <m:Address> 元素并提取地址
+    for address in root.findall(".//m:Address", namespaces=EXCHANGE_NAMESPACE):
+        addresses.add(address.text)  # 将地址添加到集合中
+
+    return addresses  # 返回地址集合
 
 def download_email(session, host, folder, save_path):
     """下载指定文件夹中的邮件"""
@@ -206,7 +214,7 @@ def main():
     if args.password:
         password_or_hash = args.password
     elif args.hash:
-        password_or_hash = "00000000000000000000000000000000:" + args.hash.upper()
+        password_or_hash = f"00000000000000000000000000000000:{args.hash.upper()}"
     else:
         logging.error("请输入密码或哈希")
         sys.exit(1)
