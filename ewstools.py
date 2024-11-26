@@ -316,7 +316,7 @@ def main():
     else:
         logging.error("请输入密码或哈希")
         sys.exit(1)
-    proxies = {"http": args.proxy, "https": args.proxy} if args.proxy else None
+    proxies = {"http": args.proxy, "https": args.proxy} if args.proxy else {}
 
     session = requests.Session()
     session.auth = HttpNtlmAuth(args.username, password_or_hash)
