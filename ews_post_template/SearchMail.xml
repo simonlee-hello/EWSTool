@@ -18,8 +18,7 @@
         </t:FieldOrder>
       </m:SortOrder>
       <m:ParentFolderIds>
-        <t:DistinguishedFolderId Id='${folder_path}'>
-        </t:DistinguishedFolderId>
+        <t:FolderId Id="${folder_id}" ChangeKey="${folder_key}" />
       </m:ParentFolderIds>
 
     </m:FindItem>

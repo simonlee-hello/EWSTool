@@ -10,7 +10,8 @@
       </m:ItemShape>
       <m:IndexedPageItemView MaxEntriesReturned="${size}" Offset="${offset}" BasePoint="Beginning" />
       <m:ParentFolderIds>
-        <t:DistinguishedFolderId Id="${folder}" />
+
+        <t:FolderId Id="${folder_id}" ChangeKey="${folder_key}" />
       </m:ParentFolderIds>
     </m:FindItem>
   </soap:Body>

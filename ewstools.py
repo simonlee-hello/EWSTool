@@ -127,7 +127,7 @@ class EWSClient:
     def get_email_count(self, folder):
         """获取指定文件夹中的邮件总数"""
         template_file = os.path.join(Config.TEMPLATES_FOLDER, "GetSizeOfFolder.xml")
-        soap_body = load_template(template_file, folder=folder)
+        soap_body = load_template(template_file, folder_id=folder['id'], folder_key=folder['key'])
         response = self.send_soap_request(soap_body)
 
         # 解析文件夹的邮件总数
@@ -142,10 +142,10 @@ class EWSClient:
         # Step 1: 获取文件夹中邮件的总数量
         total_count = self.get_email_count(folder)
         if total_count == 0:
-            logging.info(f"文件夹 {folder} 中没有邮件，无需下载。")
+            logging.info(f"文件夹 {folder['name']} 中没有邮件，无需下载。")
             return
 
-        logging.info(f"文件夹 {folder} 中有 {total_count} 封邮件，准备下载...")
+        logging.info(f"文件夹 {folder['name']} 中有 {total_count} 封邮件，准备下载...")
 
         # Step 2: 分页下载邮件
         template_file = os.path.join(Config.TEMPLATES_FOLDER, "ListMailOfFolder.xml")
@@ -154,7 +154,7 @@ class EWSClient:
 
         while offset < total_count:
             # 使用模板生成 SOAP 请求体
-            soap_body = load_template(template_file, folder=folder, size=str(size), offset=str(offset))
+            soap_body = load_template(template_file, folder_id=folder['id'], folder_key=folder['key'], size=str(size), offset=str(offset))
             response = self.send_soap_request(soap_body)
 
             # 解析返回的邮件列表
@@ -174,7 +174,7 @@ class EWSClient:
             offset += size
             logging.info(f"已下载 {offset} 封邮件，继续下一页...")
 
-        logging.info(f"文件夹 {folder} 内邮件下载完成, 共下载 {total_count} 封邮件, 所有文件保存路径：{save_path}")
+        logging.info(f"文件夹 {folder['name']} 内邮件下载完成, 共下载 {total_count} 封邮件, 所有文件保存路径：{save_path}")
 
     def save_single_email(self, email_id, change_key, save_path, retries=3, delay=2):
         """保存单封邮件"""
@@ -214,7 +214,7 @@ class EWSClient:
 
         logging.error(f"邮件下载失败，已达到最大重试次数 ({retries})，邮件ID: {email_id}，邮件key: {change_key}")
 
-    def search_emails(self, folder_path, search_type, keyword, start, end, save_path):
+    def search_emails(self, folder, search_type, keyword, start, end, save_path):
         """按关键字搜索邮件"""
         template_file = os.path.join(Config.TEMPLATES_FOLDER, "SearchMail.xml")
         max_count = 50  # 每页最大邮件数
@@ -272,7 +272,7 @@ class EWSClient:
 
         while True:
             soap_body = load_template(
-                template_file, folder_path=folder_path,
+                template_file, folder_id=folder['id'], folder_key=folder['key'],
                 search_condition=search_condition, max_count=max_count, offset=offset
             )
             response = self.send_soap_request(soap_body)
@@ -325,14 +325,30 @@ class EWSClient:
                 file.write(f"{email}\n")
         logging.info(f"共计 {len(unique_emails)} 条唯一邮箱已保存到 'emails.txt'")
 
+
     def handle_download(self, args):
         if args.download == "all":
-            for folder in ['inbox', 'sentitems']:
-                save_path = os.path.join(os.getcwd(), args.username, folder)
-                self.download_email(folder, save_path)
+            folders = self.get_folders()
+            confirm = input("您即将下载所有文件夹中的邮件。按回车键继续或输入 'Y' 以确认，或输入指定文件夹名称进行下载: ")
+            if confirm.lower() in ['', 'y']:
+                for folder in folders:
+                    save_path = os.path.join(os.getcwd(), args.username, folder['name'])
+                    self.download_email(folder, save_path)
+
+            else:
+                specific_folder = next((f for f in folders if f['name'].lower() == confirm.lower()), None)
+                if specific_folder:
+                    save_path = os.path.join(os.getcwd(), args.username, specific_folder['name'])
+                    self.download_email(specific_folder, save_path)
+                else:
+                    logging.error(f"Folder named '{confirm}' not found.")
         else:
-            save_path = os.path.join(os.getcwd(), args.username, args.download)
-            self.download_email(args.download, save_path)
+            folder = next((f for f in self.get_folders() if f['name'] == args.download), None)
+            if folder:
+                save_path = os.path.join(os.getcwd(), args.username, folder['name'])
+                self.download_email(folder, save_path)
+            else:
+                logging.error(f"未找到名为 {args.download} 的文件夹")
 
     def handle_search(self, args):
         if args.search == "keyword" and not args.keyword:
@@ -353,13 +369,26 @@ class EWSClient:
             logging.info(f"开始搜索日期从 {args.start} 到 {args.end} 的邮件")
 
         if args.folder == "all":
-            for folder in ['inbox', 'sentitems']:
-                self.search_emails(folder, args.search, args.keyword, args.start, args.end,
-                                   os.path.join(save_path, folder))
+            folders = self.get_folders()
+            confirm = input("您即将搜索所有文件夹中的邮件。按回车键继续或输入 'Y' 以确认，或输入指定文件夹名称进行搜索: ")
+            if confirm.lower() in ['', 'y']:
+                for folder in folders:
+                    self.search_emails(folder, args.search, args.keyword, args.start, args.end,
+                                       os.path.join(save_path, folder['name']))
+            else:
+                specific_folder = next((f for f in folders if f['name'].lower() == confirm.lower()), None)
+                if specific_folder:
+                    self.search_emails(specific_folder, args.search, args.keyword, args.start, args.end,
+                                       os.path.join(save_path, specific_folder['name']))
+                else:
+                    logging.error(f"未找到名为 {confirm} 的文件夹")
         else:
-            folder = args.folder
-            self.search_emails(folder, args.search, args.keyword, args.start, args.end,
-                               os.path.join(save_path, folder))
+            folder = next((f for f in self.get_folders() if f['name'] == args.folder), None)
+            if folder:
+                self.search_emails(folder, args.search, args.keyword, args.start, args.end,
+                                   os.path.join(save_path, folder['name']))
+            else:
+                logging.error(f"未找到名为 {args.folder} 的文件夹")
 
 def escape(text):
     """对字符串进行XML特殊字符转义"""
@@ -410,7 +439,7 @@ def parse_arguments():
     parser.add_argument("--proxy", help="HTTP代理")
     parser.add_argument("--people", action="store_true", required=False, help="获取所有人员信息及邮箱地址")
     parser.add_argument("--folders", required=False, action="store_true", help="获取文件夹列表")
-    parser.add_argument("--download", required=False, choices=["inbox", "sentitems", "all"],
+    parser.add_argument("--download", required=False,
                         help="下载指定邮箱文件夹的邮件")
     parser.add_argument("--search", choices=["keyword", "DateTimeReceived", "DateTimeSent"], help="搜索类型")
     parser.add_argument("--keyword", help="搜索关键词")
@@ -436,25 +465,27 @@ def get_password_or_hash(args):
 
 
 def main():
+    try:
+        args = parse_arguments()
+        password_or_hash = get_password_or_hash(args)
+        client = EWSClient(args.host, args.username, password_or_hash, args.proxy)
 
-    args = parse_arguments()
-    password_or_hash = get_password_or_hash(args)
-    client = EWSClient(args.host, args.username, password_or_hash, args.proxy)
-
-    if args.people:
-        client.handle_people()
-    elif args.folders:
-        client.get_folders()
-    elif args.download:
-        client.handle_download(args)
-    elif args.search:
-        client.handle_search(args)
-    elif args.email_id and args.change_key:
-        save_path = os.path.join(os.getcwd(), args.username, "single_email")
-        client.save_single_email(args.email_id, args.change_key, save_path)
-    else:
-        logging.warning("请输入功能参数!")
-
+        if args.people:
+            client.handle_people()
+        elif args.folders:
+            client.get_folders()
+        elif args.download:
+            client.handle_download(args)
+        elif args.search:
+            client.handle_search(args)
+        elif args.email_id and args.change_key:
+            save_path = os.path.join(os.getcwd(), args.username, "single_email")
+            client.save_single_email(args.email_id, args.change_key, save_path)
+        else:
+            logging.warning("请输入功能参数!")
+    except KeyboardInterrupt:
+        logging.info("程序已退出")
+        sys.exit(0)
 
 
 
