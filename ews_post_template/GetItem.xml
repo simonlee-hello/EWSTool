@@ -8,6 +8,7 @@
 	  <t:BaseShape>IdOnly</t:BaseShape>
 	  <t:AdditionalProperties>
 		<t:FieldURI FieldURI="item:MimeContent" />
+	  	<t:FieldURI FieldURI="item:Subject" />
 	  </t:AdditionalProperties>
 	</m:ItemShape>
 	<m:ItemIds>
