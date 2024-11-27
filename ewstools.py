@@ -84,6 +84,14 @@ class EWSClient:
             display_name = persona.findtext(".//t:DisplayName", namespaces=Config.EXCHANGE_NAMESPACE)
             surname = persona.findtext(".//t:Surname", namespaces=Config.EXCHANGE_NAMESPACE)
             email_address = persona.findtext(".//t:EmailAddress/t:EmailAddress", namespaces=Config.EXCHANGE_NAMESPACE)
+
+            if display_name is None:
+                display_name = "No_DisplayName"
+            if surname is None:
+                surname = "No_Surname"
+            if email_address is None:
+                email_address = "No_EmailAddress"
+
             person_info = f"显示名: {display_name}, 姓氏: {surname}, 邮箱: {email_address}"
             peoples.add(person_info)
             emails.add(email_address)
@@ -177,8 +185,22 @@ class EWSClient:
             try:
                 response = self.send_soap_request(soap_body)
                 if response.status_code == 200:
-                    mime_content = ET.fromstring(response.content).find(".//t:MimeContent", Config.EXCHANGE_NAMESPACE).text
-                    email_subject = ET.fromstring(response.content).find(".//t:Subject", Config.EXCHANGE_NAMESPACE).text
+                    mime_content_element = ET.fromstring(response.content).find(".//t:MimeContent",
+                                                                                Config.EXCHANGE_NAMESPACE)
+                    email_subject_element = ET.fromstring(response.content).find(".//t:Subject",
+                                                                                 Config.EXCHANGE_NAMESPACE)
+
+                    if mime_content_element is None or email_subject_element is None:
+                        logging.error("无法找到邮件内容或主题")
+                        continue
+
+                    mime_content = mime_content_element.text
+                    email_subject = email_subject_element.text
+
+                    if email_subject is None:
+                        email_subject = "No_Subject"
+                    # 截断文件名，避免过长导致保存失败
+                    email_subject = email_subject[:50]
                     email_file = os.path.join(save_path, escape_filename("[Subject]" + email_subject + "-" + email_id[-16:] + ".eml"))
                     save_email_to_file(email_file, mime_content)
                     return
@@ -330,7 +352,12 @@ class EWSClient:
                                      f"Search-{args.search}-From-{escape_filename(args.start)}-To-{escape_filename(args.end)}")
             logging.info(f"开始搜索日期从 {args.start} 到 {args.end} 的邮件")
 
-        for folder in ['inbox', 'sentitems']:
+        if args.folder == "all":
+            for folder in ['inbox', 'sentitems']:
+                self.search_emails(folder, args.search, args.keyword, args.start, args.end,
+                                   os.path.join(save_path, folder))
+        else:
+            folder = args.folder
             self.search_emails(folder, args.search, args.keyword, args.start, args.end,
                                os.path.join(save_path, folder))
 
@@ -375,7 +402,7 @@ def save_email_to_file(path, content):
 
 
 def parse_arguments():
-    parser = argparse.ArgumentParser(description="EWS工具")
+    parser = argparse.ArgumentParser(description="EWS工具, 用于从Exchange服务器下载邮件，搜索邮件，获取人员信息等。邮件搜索和下载功能是按照日期由近及远的顺序进行的。")
     parser.add_argument("--host", required=True, help="目标Exchange服务器")
     parser.add_argument("--username", required=True, help="用户名")
     parser.add_argument("--password", required=False, help="明文密码")
@@ -392,6 +419,7 @@ def parse_arguments():
                         help="搜索邮件时的结束日期 (格式: YYYY-MM-DD)")
     parser.add_argument("--email_id", help="要下载的单个邮件的ID")
     parser.add_argument("--change_key", help="要下载的单个邮件的ChangeKey")
+    parser.add_argument("--folder", choices=["inbox", "sentitems", "all"], help="要搜索的文件夹")
     return parser.parse_args()
 
 
