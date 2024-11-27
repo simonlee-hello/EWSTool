@@ -168,23 +168,36 @@ class EWSClient:
 
         logging.info(f"文件夹 {folder} 内邮件下载完成, 共下载 {total_count} 封邮件, 所有文件保存路径：{save_path}")
 
-    def save_single_email(self, email_id, change_key, save_path):
+    def save_single_email(self, email_id, change_key, save_path, retries=3, delay=2):
         """保存单封邮件"""
         template_file = os.path.join(Config.TEMPLATES_FOLDER, "GetItem.xml")
         soap_body = load_template(template_file, Id=email_id, ChangeKey=change_key)
-        response = self.send_soap_request(soap_body)
 
-        mime_content = ET.fromstring(response.content).find(".//t:MimeContent", Config.EXCHANGE_NAMESPACE).text
-        email_subject = ET.fromstring(response.content).find(".//t:Subject", Config.EXCHANGE_NAMESPACE).text
-        email_file = os.path.join(save_path, escape_filename("[Subject]" + email_subject + "-" + email_id[-16:] + ".eml"))
-        save_email_to_file(email_file, mime_content)
+        for attempt in range(retries):
+            try:
+                response = self.send_soap_request(soap_body)
+                if response.status_code == 200:
+                    mime_content = ET.fromstring(response.content).find(".//t:MimeContent", Config.EXCHANGE_NAMESPACE).text
+                    email_subject = ET.fromstring(response.content).find(".//t:Subject", Config.EXCHANGE_NAMESPACE).text
+                    email_file = os.path.join(save_path, escape_filename("[Subject]" + email_subject + "-" + email_id[-16:] + ".eml"))
+                    save_email_to_file(email_file, mime_content)
+                    return
+                else:
+                    logging.error(f"请求失败: {response.status_code} - {response.text}")
+            except requests.RequestException as e:
+                logging.error(f"请求发生异常: {e}")
 
-    def search_emails(self, folder_path, type, keyword, start, end, save_path):
+            logging.warning(f"下载邮件失败，重试 {attempt + 1}/{retries} 次")
+            time.sleep(delay)
+
+        logging.error(f"邮件下载失败，已达到最大重试次数 ({retries})，邮件ID: {email_id}，邮件key: {change_key}")
+
+    def search_emails(self, folder_path, search_type, keyword, start, end, save_path):
         """按关键字搜索邮件"""
         template_file = os.path.join(Config.TEMPLATES_FOLDER, "SearchMail.xml")
         max_count = 50  # 每页最大邮件数
         offset = 0  # 起始偏移量
-        if type == "keyword" and keyword:
+        if search_type == "keyword" and keyword:
             search_condition = f"""
                     <t:Or>
                       <t:Contains ContainmentMode="Substring" ContainmentComparison="IgnoreCase">
@@ -197,7 +210,7 @@ class EWSClient:
                       </t:Contains>
                     </t:Or>
                 """
-        elif type == "DateTimeReceived" and start and end:
+        elif search_type == "DateTimeReceived" and start and end:
             search_condition = f"""
                     <t:And>
                       <t:IsGreaterThanOrEqualTo>
@@ -214,7 +227,7 @@ class EWSClient:
                       </t:IsLessThanOrEqualTo>
                     </t:And>
                 """
-        elif type == "DateTimeSent" and start and end:
+        elif search_type == "DateTimeSent" and start and end:
             search_condition = f"""
                     <t:And>
                       <t:IsGreaterThanOrEqualTo>
@@ -266,6 +279,61 @@ class EWSClient:
             logging.info(f"已处理 {offset} 封邮件，继续下一页...")
         logging.info(f"符合条件的邮件下载完成, 共下载 {offset} 封邮件, 所有文件保存路径：{save_path}")
 
+    def handle_people(self):
+        logging.info("查找所有人员")
+        all_people = []
+        all_email = []
+
+        for char in "abcdefghijklmnopqrstuvwxyz":
+            logging.info(f"正在查找: {char}")
+            peoples, emails = self.find_all_people(char)
+            all_people.extend(peoples)
+            all_email.extend(emails)
+
+        unique_people = sorted(set(all_people))
+        unique_emails = sorted(set(all_email))
+
+        with open("peoples.txt", "w", encoding="utf-8") as file:
+            for person in unique_people:
+                file.write(f"{person}\n")
+        logging.info(f"共计 {len(unique_people)} 条唯一人员信息已保存到 'peoples.txt'")
+
+        with open("emails.txt", "w", encoding="utf-8") as file:
+            for email in unique_emails:
+                file.write(f"{email}\n")
+        logging.info(f"共计 {len(unique_emails)} 条唯一邮箱已保存到 'emails.txt'")
+
+    def handle_download(self, args):
+        if args.download == "all":
+            for folder in ['inbox', 'sentitems']:
+                save_path = os.path.join(os.getcwd(), args.username, folder)
+                self.download_email(folder, save_path)
+        else:
+            save_path = os.path.join(os.getcwd(), args.username, args.download)
+            self.download_email(args.download, save_path)
+
+    def handle_search(self, args):
+        if args.search == "keyword" and not args.keyword:
+            logging.error("必须指定搜索关键词（--keyword）")
+            sys.exit(1)
+
+        if (args.search == "DateTimeReceived" or args.search == "DateTimeSent") and not args.start and not args.end:
+            logging.error("必须指定起始日期（--start）或截止日期（--end）")
+            sys.exit(1)
+
+        save_path = os.path.join(os.getcwd(), args.username)
+        if args.search == "keyword":
+            save_path = os.path.join(save_path, f"Search-{escape_filename(args.keyword)}")
+            logging.info(f"开始搜索标题和正文中包含 {args.keyword} 关键字的邮件")
+        elif args.search == "DateTimeReceived" or args.search == "DateTimeSent":
+            save_path = os.path.join(save_path,
+                                     f"Search-{args.search}-From-{escape_filename(args.start)}-To-{escape_filename(args.end)}")
+            logging.info(f"开始搜索日期从 {args.start} 到 {args.end} 的邮件")
+
+        for folder in ['inbox', 'sentitems']:
+            self.search_emails(folder, args.search, args.keyword, args.start, args.end,
+                               os.path.join(save_path, folder))
+
 def escape(text):
     """对字符串进行XML特殊字符转义"""
     return (text
@@ -306,100 +374,62 @@ def save_email_to_file(path, content):
         raise e
 
 
-def main():
+def parse_arguments():
     parser = argparse.ArgumentParser(description="EWS工具")
     parser.add_argument("--host", required=True, help="目标Exchange服务器")
     parser.add_argument("--username", required=True, help="用户名")
     parser.add_argument("--password", required=False, help="明文密码")
     parser.add_argument("--hash", required=False, help="哈希")
     parser.add_argument("--proxy", help="HTTP代理")
-
-    # command to get all people`s email
     parser.add_argument("--people", action="store_true", required=False, help="获取所有人员信息及邮箱地址")
-    # command to list the folder
-    parser.add_argument("--folders", required=False, action="store_true",help="获取文件夹列表")
-    # command to download emails
-    parser.add_argument("--download", required=False, choices=["inbox", "sentitems", "all"], help="下载指定邮箱文件夹的邮件")
-    # New arguments for search command
+    parser.add_argument("--folders", required=False, action="store_true", help="获取文件夹列表")
+    parser.add_argument("--download", required=False, choices=["inbox", "sentitems", "all"],
+                        help="下载指定邮箱文件夹的邮件")
     parser.add_argument("--search", choices=["keyword", "DateTimeReceived", "DateTimeSent"], help="搜索类型")
     parser.add_argument("--keyword", help="搜索关键词")
     parser.add_argument("--start", help="搜索邮件时的开始日期 (格式: YYYY-MM-DD)")
-    parser.add_argument("--end",default=datetime.today().strftime('%Y-%m-%d'), help="搜索邮件时的结束日期 (格式: YYYY-MM-DD)")
+    parser.add_argument("--end", default=datetime.today().strftime('%Y-%m-%d'),
+                        help="搜索邮件时的结束日期 (格式: YYYY-MM-DD)")
+    parser.add_argument("--email_id", help="要下载的单个邮件的ID")
+    parser.add_argument("--change_key", help="要下载的单个邮件的ChangeKey")
+    return parser.parse_args()
 
-    args = parser.parse_args()
 
+def get_password_or_hash(args):
     if args.password:
-        password_or_hash = args.password
+        return args.password
     elif args.hash:
-        password_or_hash = f"00000000000000000000000000000000:{args.hash.upper()}"
+        return f"00000000000000000000000000000000:{args.hash.upper()}"
     else:
         logging.error("请输入密码或哈希")
         sys.exit(1)
 
+
+
+
+def main():
+
+    args = parse_arguments()
+    password_or_hash = get_password_or_hash(args)
     client = EWSClient(args.host, args.username, password_or_hash, args.proxy)
 
     if args.people:
-        logging.info("查找所有人员")
-        all_people = []
-        all_email = []
-
-        # 遍历 a-z 进行查找
-        for char in "abcdefghijklmnopqrstuvwxyz":
-            logging.info(f"正在查找: {char}")
-            peoples, emails = client.find_all_people(char)
-            all_people.extend(peoples)  # 使用 extend 来合并结果
-            all_email.extend(emails)  # 使用 extend 来合并结果
-
-        # 去重
-        unique_people = sorted(set(all_people))  # 去重并排序
-        unique_emails = sorted(set(all_email))  # 去重并排序
-
-        # 将结果写入文件
-            # 保存人员信息
-        with open("peoples.txt", "w", encoding="utf-8") as file:
-            for person in unique_people:
-                file.write(f"{person}\n")
-        logging.info(f"共计 {len(unique_people)} 条唯一人员信息已保存到 'peoples.txt'")
-
-        # 保存邮箱信息
-        with open("emails.txt", "w", encoding="utf-8") as file:
-            for email in unique_emails:
-                file.write(f"{email}\n")
-        logging.info(f"共计 {len(unique_emails)} 条唯一邮箱已保存到 'emails.txt'")
+        client.handle_people()
     elif args.folders:
         client.get_folders()
     elif args.download:
-        if args.download == "all":
-            for folder in ['inbox', 'sentitems']:
-                save_path = os.path.join(os.getcwd(), args.username, folder)
-                client.download_email(folder, save_path)
-        else:
-            save_path = os.path.join(os.getcwd(), args.username, args.download)
-            client.download_email(args.download, save_path)
+        client.handle_download(args)
     elif args.search:
-        if args.search == "keyword" and not args.keyword:
-            logging.error("必须指定搜索关键词（--keyword）")
-            sys.exit(1)
-
-        if (args.search == "DateTimeReceived" or args.search == "DateTimeSent") and not args.start and not args.end:
-            logging.error("必须指定起始日期（--start）或截止日期（--end）")
-            sys.exit(1)
-
-        # Prepare search parameters
-
-        save_path = os.path.join(os.getcwd(), args.username)
-        if args.search == "keyword":
-            save_path = os.path.join(save_path, f"Search-{escape_filename(args.keyword)}")
-            logging.info(f"开始搜索标题和正文中包含 {args.keyword} 关键字的邮件")
-        elif args.search == "DateTimeReceived" or args.search == "DateTimeSent":
-            save_path = os.path.join(save_path,
-                                     f"Search-{args.search}-From-{escape_filename(args.start)}-To-{escape_filename(args.end)}")
-            logging.info(f"开始搜索日期从 {args.start} 到 {args.end} 的邮件")
-
-        for folder in ['inbox', 'sentitems']:
-            client.search_emails(folder, args.search, args.keyword, args.start, args.end,
-                          os.path.join(save_path, folder))
+        client.handle_search(args)
+    elif args.email_id and args.change_key:
+        save_path = os.path.join(os.getcwd(), args.username, "single_email")
+        client.save_single_email(args.email_id, args.change_key, save_path)
     else:
         logging.warning("请输入功能参数!")
+
+
+
+
+
 if __name__ == "__main__":
     main()
