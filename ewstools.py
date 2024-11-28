@@ -327,65 +327,72 @@ class EWSClient:
 
 
     def handle_download(self, args):
-        if args.download == "all":
+        if args.id and args.key:
+            save_path = os.path.join(os.getcwd(), args.username, "SingleEmail")
+            self.save_single_email(args.id, args.key, save_path)
+            return
+        if args.folder == "all":
             folders = self.get_folders()
-            confirm = input("您即将下载所有文件夹中的邮件。按回车键继续或输入 'Y' 以确认，或输入指定文件夹名称进行下载: ")
-            if confirm.lower() in ['', 'y']:
-                for folder in folders:
-                    save_path = os.path.join(os.getcwd(), args.username, folder['name'])
-                    self.download_email(folder, save_path)
-
-            else:
-                specific_folder = next((f for f in folders if f['name'].lower() == confirm.lower()), None)
-                if specific_folder:
-                    save_path = os.path.join(os.getcwd(), args.username, specific_folder['name'])
-                    self.download_email(specific_folder, save_path)
-                else:
-                    logging.error(f"Folder named '{confirm}' not found.")
+            if not args.y:
+                confirm = input(
+                    "您即将下载所有文件夹中的邮件。按回车键继续或输入 'Y' 以确认，或输入指定文件夹名称进行下载: ")
+                if confirm.lower() not in ['', 'y']:
+                    specific_folder = next((f for f in folders if f['name'].lower() == confirm.lower()), None)
+                    if specific_folder:
+                        save_path = os.path.join(os.getcwd(), args.username, specific_folder['name'])
+                        self.download_email(specific_folder, save_path)
+                    else:
+                        logging.error(f"Folder named '{confirm}' not found.")
+                    return
+            for folder in folders:
+                save_path = os.path.join(os.getcwd(), args.username, folder['name'])
+                self.download_email(folder, save_path)
         else:
-            folder = next((f for f in self.get_folders() if f['name'] == args.download), None)
+            folder = next((f for f in self.get_folders() if f['name'] == args.folder), None)
             if folder:
                 save_path = os.path.join(os.getcwd(), args.username, folder['name'])
                 self.download_email(folder, save_path)
             else:
-                logging.error(f"未找到名为 {args.download} 的文件夹")
+                logging.error(f"未找到名为 {args.folder} 的文件夹")
 
     def handle_search(self, args):
-        if args.search == "keyword" and not args.keyword:
+        if args.type == "keyword" and not args.keyword:
             logging.error("必须指定搜索关键词（--keyword）")
             sys.exit(1)
 
-        if (args.search == "DateTimeReceived" or args.search == "DateTimeSent") and not args.start and not args.end:
+        if (args.type == "DateTimeReceived" or args.type == "DateTimeSent") and not args.start and not args.end:
             logging.error("必须指定起始日期（--start）或截止日期（--end）")
             sys.exit(1)
 
         save_path = os.path.join(os.getcwd(), args.username)
-        if args.search == "keyword":
+        if args.type == "keyword":
             save_path = os.path.join(save_path, f"Search-{escape_filename(args.keyword)}")
             logging.info(f"开始搜索标题和正文中包含 {args.keyword} 关键字的邮件")
-        elif args.search == "DateTimeReceived" or args.search == "DateTimeSent":
+        elif args.type == "DateTimeReceived" or args.type == "DateTimeSent":
             save_path = os.path.join(save_path,
-                                     f"Search-{args.search}-From-{escape_filename(args.start)}-To-{escape_filename(args.end)}")
+                                     f"Search-{args.type}-From-{escape_filename(args.start)}-To-{escape_filename(args.end)}")
             logging.info(f"开始搜索日期从 {args.start} 到 {args.end} 的邮件")
 
         if args.folder == "all":
             folders = self.get_folders()
-            confirm = input("您即将搜索所有文件夹中的邮件。按回车键继续或输入 'Y' 以确认，或输入指定文件夹名称进行搜索: ")
-            if confirm.lower() in ['', 'y']:
-                for folder in folders:
-                    self.search_emails(folder, args.search, args.keyword, args.start, args.end,
-                                       os.path.join(save_path, folder['name']))
-            else:
-                specific_folder = next((f for f in folders if f['name'].lower() == confirm.lower()), None)
-                if specific_folder:
-                    self.search_emails(specific_folder, args.search, args.keyword, args.start, args.end,
-                                       os.path.join(save_path, specific_folder['name']))
-                else:
-                    logging.error(f"未找到名为 {confirm} 的文件夹")
+            if not args.y:
+                confirm = input(
+                    "您即将搜索所有文件夹中的邮件。按回车键继续或输入 'Y' 以确认，或输入指定文件夹名称进行搜索: ")
+                if confirm.lower() not in ['', 'y']:
+                    specific_folder = next((f for f in folders if f['name'].lower() == confirm.lower()), None)
+                    if specific_folder:
+                        self.search_emails(specific_folder, args.type, args.keyword, args.start, args.end,
+                                           os.path.join(save_path, specific_folder['name']))
+                    else:
+                        logging.error(f"未找到名为 {confirm} 的文件夹")
+                    return
+            for folder in folders:
+                self.search_emails(folder, args.type, args.keyword, args.start, args.end,
+                                   os.path.join(save_path, folder['name']))
         else:
             folder = next((f for f in self.get_folders() if f['name'] == args.folder), None)
             if folder:
-                self.search_emails(folder, args.search, args.keyword, args.start, args.end,
+                self.search_emails(folder, args.type, args.keyword, args.start, args.end,
                                    os.path.join(save_path, folder['name']))
             else:
                 logging.error(f"未找到名为 {args.folder} 的文件夹")
@@ -433,24 +440,33 @@ def save_email_to_file(path, content):
 def parse_arguments():
     parser = argparse.ArgumentParser(description="EWS工具, 用于从Exchange服务器下载邮件，搜索邮件，获取人员信息等。邮件搜索和下载功能是按照日期由近及远的顺序进行的。")
     parser.add_argument("--host", required=True, help="目标Exchange服务器")
-    parser.add_argument("--username", required=True, help="用户名")
-    parser.add_argument("--password", required=False, help="明文密码")
+    parser.add_argument("-u", "--username", required=True, help="用户名")
+    parser.add_argument("-p", "--password", required=False, help="明文密码")
     parser.add_argument("--hash", required=False, help="哈希")
     parser.add_argument("--proxy", help="HTTP代理")
-    parser.add_argument("--people", action="store_true", required=False, help="获取所有人员信息及邮箱地址")
-    parser.add_argument("--folders", required=False, action="store_true", help="获取文件夹列表")
-    parser.add_argument("--download", required=False,
-                        help="下载指定邮箱文件夹的邮件")
-    parser.add_argument("--search", choices=["keyword", "DateTimeReceived", "DateTimeSent"], help="搜索类型")
-    parser.add_argument("--keyword", help="搜索关键词")
-    parser.add_argument("--start", help="搜索邮件时的开始日期 (格式: YYYY-MM-DD)")
-    parser.add_argument("--end", default=datetime.today().strftime('%Y-%m-%d'),
-                        help="搜索邮件时的结束日期 (格式: YYYY-MM-DD)")
-    parser.add_argument("--email_id", help="要下载的单个邮件的ID")
-    parser.add_argument("--change_key", help="要下载的单个邮件的ChangeKey")
-    parser.add_argument("--folder", choices=["inbox", "sentitems", "all"], help="要搜索的文件夹")
-    return parser.parse_args()
+    # 创建子命令解析器
+    subparsers = parser.add_subparsers(dest="module", required=True, help="功能模块")
 
+    # 获取人员信息模块
+    subparsers.add_parser("people", help="获取所有人员信息及邮箱地址")
+    # 获取文件夹列表模块
+    subparsers.add_parser("folders", help="获取文件夹列表")
+    # 下载模块
+    download_parser = subparsers.add_parser("download", help="下载指定邮箱文件夹的邮件")
+    download_parser.add_argument("--folder",default="all", help="下载指定邮箱文件夹的邮件")
+    download_parser.add_argument("--id", help="要下载的单个邮件的ID")
+    download_parser.add_argument("--key", help="要下载的单个邮件的ChangeKey")
+    download_parser.add_argument("-y", action="store_true", help="跳过确认")
+    # 搜索模块
+    search_parser = subparsers.add_parser("search", help="搜索邮件")
+    search_parser.add_argument("-t", "--type",choices=["keyword", "DateTimeReceived", "DateTimeSent"], required=True, help="搜索类型")
+    search_parser.add_argument("-k", "--keyword", help="搜索关键词")
+    search_parser.add_argument("--start", help="搜索邮件时的开始日期 (格式: YYYY-MM-DD)")
+    search_parser.add_argument("--end", default=datetime.today().strftime('%Y-%m-%d'), help="搜索邮件时的结束日期 (格式: YYYY-MM-DD)")
+    search_parser.add_argument("--folder", default="all",help="要搜索的文件夹,'all'表示所有文件夹")
+    search_parser.add_argument("-y", action="store_true", help="跳过确认")
+    
+    return parser.parse_args()
 
 def get_password_or_hash(args):
     if args.password:
@@ -470,17 +486,14 @@ def main():
         password_or_hash = get_password_or_hash(args)
         client = EWSClient(args.host, args.username, password_or_hash, args.proxy)
 
-        if args.people:
+        if args.module == "people":
             client.handle_people()
-        elif args.folders:
+        elif args.module == "folders":
             client.get_folders()
-        elif args.download:
+        elif args.module == "download":
             client.handle_download(args)
-        elif args.search:
+        elif args.module == "search":
             client.handle_search(args)
-        elif args.email_id and args.change_key:
-            save_path = os.path.join(os.getcwd(), args.username, "single_email")
-            client.save_single_email(args.email_id, args.change_key, save_path)
         else:
             logging.warning("请输入功能参数!")
     except KeyboardInterrupt:

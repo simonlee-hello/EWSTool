@@ -1,6 +1,6 @@
 # EWS工具
 
-EWS工具用于从Exchange服务器下载邮件，搜索邮件，获取人员信息等。邮件搜索和下载功能是按照日期由近及远的顺序进行的。
+EWS工具用于从Exchange服务器下载邮件，搜索邮件，获取人员信息等。
 
 ## 功能
 
@@ -31,62 +31,71 @@ EWS工具用于从Exchange服务器下载邮件，搜索邮件，获取人员信
 - `--host`：目标Exchange服务器地址（必填）。
 - `--username`：用户名（必填）。
 - `--password`：明文密码（可选）。
-- `--hash`：哈希密码（可选）。
-- `--proxy`：HTTP代理（可选）。
-- `--people`：获取所有人员信息及邮箱地址（可选）。
-- `--folders`：获取文件夹列表（可选）。
-- `--download`：下载指定邮箱文件夹的邮件（可选，值为`inbox`、`sentitems`或`all`）。
-- `--search`：搜索类型（可选，值为`keyword`、`DateTimeReceived`或`DateTimeSent`）。
-- `--keyword`：搜索关键词（可选）。
-- `--start`：搜索邮件时的开始日期（格式：YYYY-MM-DD，可选）。
-- `--end`：搜索邮件时的结束日期（格式：YYYY-MM-DD，可选）。
-- `--email_id`：要下载的单个邮件的ID（可选）。
-- `--change_key`：要下载的单个邮件的ChangeKey（可选）。
-- `--folder`：要搜索的文件夹（可选，值为`inbox`、`sentitems`或`all`）。
+- `--hash`：NTLM 哈希密码（可选）。
+- `--proxy`：HTTP代理（可选）。格式：`http://127.0.0.1:8080`。
+- `people`：获取所有人员信息及邮箱地址。
+- `folders`：获取文件夹列表。
+- `download`：下载指定邮箱文件夹的邮件。（按照日期由近及远的顺序进行）
+    - `--folder`：文件夹名称。(默认所有文件夹)
+    - `--id`：邮件ID。(指定某个邮件下载，在批量下载失败后使用)
+    - `--key`：邮件ChangeKey。(指定某个邮件下载，在批量下载失败后使用)
+    - `-y`：跳过确认。
+- `search`：搜索邮件。（按照日期由近及远的顺序进行）
+    - `--type`：搜索类型（`keyword`或`DateTimeReceived`或`DateTimeSent`）。
+    - `--keyword`：关键字。
+    - `--start`：开始日期（`YYYY-MM-DD`）。
+    - `--end`：结束日期（`YYYY-MM-DD`）。(为空时默认为当前日期)
+    - `--folder`：文件夹名称。(默认所有文件夹)
 
 ### 示例
 
 1. 获取所有人员信息：
     ```bash
-    python ewstools.py --host <host> --username <username> --password <password> --people
-    python ewstools.py --host <host> --username <username> --hash <hash> --people
+    python ewstools.py --host <host> --username <username> --password <password> people
+    python ewstools.py --host <host> --username <username> --hash <hash> people
     ```
 
 2. 获取文件夹列表：
     ```bash
-    python ewstools.py --host <host> --username <username> --password <password> --folders
+    python ewstools.py --host <host> --username <username> --password <password> folders
     ```
 
 3. 下载邮件（按照日期从近到远进行下载）：
     ```bash
-    # 下载收件箱和发件箱中的所有邮件
-    python ewstools.py --host <host> --username <username> --password <password> --download all
-    # 下载收件箱中的所有邮件
-    python ewstools.py --host <host> --username <username> --password <password> --download inbox
-    # 下载发件箱中的所有邮件
-    python ewstools.py --host <host> --username <username> --password <password> --download sentitems
+    # 下载所有文件夹中的邮件
+    python ewstools.py --host <host> --username <username> --password <password> download --folder all
+    # 下载指定文件夹中的邮件
+    python ewstools.py --host <host> --username <username> --password <password> folders
+    python ewstools.py --host <host> --username <username> --password <password> download --folder <folder_name>
+    # 跳过确认
+    python ewstools.py --host <host> --username <username> --password <password> download --folder all -y
     ```
 
-4. 按关键字搜索邮件（按照日期从近到远进行下载）：
+4. 下载指定邮件：
     ```bash
-    # 在收件箱和发件箱中搜索关键字
-    python ewstools.py --host <host> --username <username> --password <password> --search keyword --keyword <keyword> --folder all
-    # 在收件箱中搜索关键字
-    python ewstools.py --host <host> --username <username> --password <password> --search keyword --keyword <keyword> --folder inbox
-    # 在发件箱中搜索关键字
-    python ewstools.py --host <host> --username <username> --password <password> --search keyword --keyword <keyword> --folder sentitems
+    python ewstools.py --host <host> --username <username> --password <password> download --id <id> --key <key>
     ```
 
-5. 按日期范围搜索邮件并下载（按照日期从近到远进行下载）：
+5. 按关键字搜索邮件（按照日期从近到远进行下载）：
     ```bash
-    # 在收件箱和发件箱中搜索日期范围
-    python ewstools.py --host <host> --username <username> --password <password> --search DateTimeReceived --start <start_date> --end <end_date> --folder all
-    # 在收件箱中搜索日期范围
-    python ewstools.py --host <host> --username <username> --password <password> --search DateTimeReceived --start <start_date> --end <end_date> --folder inbox
-    # 在发件箱中搜索日期范围
-    python ewstools.py --host <host> --username <username> --password <password> --search DateTimeSent --start <start_date> --end <end_date> --folder sentitems
-    # 也可以不写--end参数，默认是到当前日期
-    python ewstools.py --host <host> --username <username> --password <password> --search DateTimeReceived --start <start_date> --folder inbox
+    # 在所有文件夹中搜索关键字
+    python ewstools.py --host <host> --username <username> --password <password> search --type keyword --keyword <keyword> --folder all
+    # 在指定文件夹中搜索关键字
+    python ewstools.py --host <host> --username <username> --password <password> folders
+    python ewstools.py --host <host> --username <username> --password <password> search --type keyword --keyword <keyword> --folder <folder_name>
+    # 跳过确认
+    python ewstools.py --host <host> --username <username> --password <password> search --type keyword --keyword <keyword> --folder all -y
+    ```
+
+6. 按日期范围搜索邮件并下载（按照日期从近到远进行下载）：
+    ```bash
+    # 在所有文件夹中搜索日期范围
+    python ewstools.py --host <host> --username <username> --password <password> search --type DateTimeReceived --start <start_date> --end <end_date> --folder all
+    # 在指定文件夹中搜索日期范围
+    python ewstools.py --host <host> --username <username> --password <password> folders
+    python ewstools.py --host <host> --username <username> --password <password> search --type DateTimeReceived --start <start_date> --end <end_date> --folder <folder_name>
+    # 跳过确认
+    python ewstools.py --host <host> --username <username> --password <password> search --type DateTimeReceived --start <start_date> --end <end_date> --folder all -y
     ```
 
 ## 配置
