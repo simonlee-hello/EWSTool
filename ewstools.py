@@ -151,7 +151,7 @@ class EWSClient:
             folders.append({'name': folder_name, 'id': folder_id, 'key': folder_key, 'total_count': folder_total_count,
                             'child_folder_count': folder_child_folder_count, 'unread_count': folder_unread_count})
             logging.info(
-                f"找到文件夹: {folder_name} 邮件数量共计: {folder_total_count} 子文件夹数量: {folder_child_folder_count} 未读数量: {folder_unread_count}")
+                f"找到文件夹:【{folder_name}】邮件数量共计: {folder_total_count} 子文件夹数量: {folder_child_folder_count} 未读数量: {folder_unread_count}")
 
         return folders
 
@@ -174,7 +174,7 @@ class EWSClient:
         total_count = self.get_email_count(folder)
         if total_count == 0:
             logging.info(f"文件夹【{folder['name']}】中没有邮件，无需下载。")
-            return
+            return total_count
 
         logging.info(f"文件夹【{folder['name']}】中有 {total_count} 封邮件，准备下载...")
 
@@ -206,6 +206,7 @@ class EWSClient:
             logging.info(f"已下载 {offset} 封邮件，继续下一页...")
 
         logging.info(f"文件夹【{folder['name']}】内邮件下载完成, 共下载 {total_count} 封邮件, 所有文件保存路径：{save_path}")
+        return total_count
 
     def save_single_email(self, email_id, change_key, save_path, retries=3, delay=2):
         """保存单封邮件"""
@@ -369,6 +370,7 @@ class EWSClient:
             return
         if args.folder == "all":
             folders = self.get_folders()
+            total_emails = 0
             if not args.y:
                 confirm = input(
                     "您即将下载所有文件夹中的邮件。按回车键继续或输入 'Y' 以确认，或输入指定文件夹名称进行下载: ")
@@ -377,13 +379,15 @@ class EWSClient:
                     if specific_folder and int(specific_folder['total_count']) > 0:
                         save_path = os.path.join(os.getcwd(), args.username, specific_folder['name'])
                         self.download_email(specific_folder, save_path)
+
                     else:
                         logging.error(f"未找到名为【{confirm}】的文件夹或文件夹中没有邮件")
                     return
             for folder in folders:
                 if int(folder['total_count']) > 0:
                     save_path = os.path.join(os.getcwd(), args.username, folder['name'])
-                    self.download_email(folder, save_path)
+                    total_emails += self.download_email(folder, save_path)
+            logging.info(f"总共下载到 {total_emails} 封邮件")
         else:
             folder = next((f for f in self.get_folders() if f['name'] == args.folder), None)
             if folder and int(folder['total_count']) > 0:
