@@ -151,7 +151,7 @@ class EWSClient:
             folders.append({'name': folder_name, 'id': folder_id, 'key': folder_key, 'total_count': folder_total_count,
                             'child_folder_count': folder_child_folder_count, 'unread_count': folder_unread_count})
             logging.info(
-                f"[+]找到文件夹: {folder_name} 邮件数量共计: {folder_total_count} 子文件夹数量: {folder_child_folder_count} 未读数量: {folder_unread_count}")
+                f"找到文件夹: {folder_name} 邮件数量共计: {folder_total_count} 子文件夹数量: {folder_child_folder_count} 未读数量: {folder_unread_count}")
 
         return folders
 
@@ -203,9 +203,9 @@ class EWSClient:
                 break
             # 增加偏移量以获取下一页
             offset += size
-            logging.info(f"[+]已下载 {offset} 封邮件，继续下一页...")
+            logging.info(f"已下载 {offset} 封邮件，继续下一页...")
 
-        logging.info(f"[+]文件夹 {folder['name']} 内邮件下载完成, 共下载 {total_count} 封邮件, 所有文件保存路径：{save_path}")
+        logging.info(f"文件夹 {folder['name']} 内邮件下载完成, 共下载 {total_count} 封邮件, 所有文件保存路径：{save_path}")
 
     def save_single_email(self, email_id, change_key, save_path, retries=3, delay=2):
         """保存单封邮件"""
@@ -334,7 +334,7 @@ class EWSClient:
         if offset == 0:
             logging.info(f"文件夹 {folder['name']} 中没有符合条件的邮件。")
             return 0
-        logging.info(f"[+]文件夹 {folder['name']} 符合条件的邮件下载完成, 共下载 {offset} 封邮件, 所有文件保存路径：{save_path}")
+        logging.info(f"文件夹 {folder['name']} 符合条件的邮件下载完成, 共下载 {offset} 封邮件, 所有文件保存路径：{save_path}")
         return offset
 
     def handle_people(self):
@@ -354,12 +354,12 @@ class EWSClient:
         with open("peoples.txt", "w", encoding="utf-8") as file:
             for person in unique_people:
                 file.write(f"{person}\n")
-        logging.info(f"[+]共计 {len(unique_people)} 条人员信息已保存到 'peoples.txt'")
+        logging.info(f"共计 {len(unique_people)} 条人员信息已保存到 'peoples.txt'")
 
         with open("emails.txt", "w", encoding="utf-8") as file:
             for email in unique_emails:
                 file.write(f"{email}\n")
-        logging.info(f"[+]共计 {len(unique_emails)} 条邮箱已保存到 'emails.txt'")
+        logging.info(f"共计 {len(unique_emails)} 条邮箱已保存到 'emails.txt'")
 
 
     def handle_download(self, args):
@@ -374,22 +374,23 @@ class EWSClient:
                     "您即将下载所有文件夹中的邮件。按回车键继续或输入 'Y' 以确认，或输入指定文件夹名称进行下载: ")
                 if confirm.lower() not in ['', 'y']:
                     specific_folder = next((f for f in folders if f['name'].lower() == confirm.lower()), None)
-                    if specific_folder:
+                    if specific_folder and int(specific_folder['total_count']) > 0:
                         save_path = os.path.join(os.getcwd(), args.username, specific_folder['name'])
                         self.download_email(specific_folder, save_path)
                     else:
-                        logging.error(f"Folder named '{confirm}' not found.")
+                        logging.error(f"未找到名为 {confirm} 的文件夹或文件夹中没有邮件")
                     return
             for folder in folders:
-                save_path = os.path.join(os.getcwd(), args.username, folder['name'])
-                self.download_email(folder, save_path)
+                if int(folder['total_count']) > 0:
+                    save_path = os.path.join(os.getcwd(), args.username, folder['name'])
+                    self.download_email(folder, save_path)
         else:
             folder = next((f for f in self.get_folders() if f['name'] == args.folder), None)
-            if folder:
+            if folder and int(folder['total_count']) > 0:
                 save_path = os.path.join(os.getcwd(), args.username, folder['name'])
                 self.download_email(folder, save_path)
             else:
-                logging.error(f"未找到名为 {args.folder} 的文件夹")
+                logging.error(f"未找到名为 {args.folder} 的文件夹或文件夹中没有邮件")
 
     def handle_search(self, args):
         if args.type == "keyword" and not args.keyword:
@@ -418,25 +419,26 @@ class EWSClient:
                     "您即将搜索所有文件夹中的邮件。按回车键继续或输入 'Y' 以确认，或输入指定文件夹名称进行搜索: ")
                 if confirm.lower() not in ['', 'y']:
                     specific_folder = next((f for f in folders if f['name'].lower() == confirm.lower()), None)
-                    if specific_folder:
+                    if specific_folder and int(specific_folder['total_count']) > 0:
                         total_emails += self.search_emails(specific_folder, args.type, args.keyword, args.start, args.end,
                                            os.path.join(save_path, specific_folder['name']))
                     else:
-                        logging.error(f"未找到名为 {confirm} 的文件夹")
-                    logging.info(f"[+]总共搜索并下载到 {total_emails} 封邮件")
+                        logging.error(f"未找到名为 {confirm} 的文件夹 或 文件夹中没有邮件")
+                    logging.info(f"总共搜索并下载到 {total_emails} 封邮件")
                     return
             for folder in folders:
-                total_emails += self.search_emails(folder, args.type, args.keyword, args.start, args.end,
+                if int(folder['total_count']) > 0:
+                    total_emails += self.search_emails(folder, args.type, args.keyword, args.start, args.end,
                                    os.path.join(save_path, folder['name']))
-            logging.info(f"[+]总共搜索并下载到 {total_emails} 封邮件")
+            logging.info(f"总共搜索并下载到 {total_emails} 封邮件")
         else:
             folder = next((f for f in self.get_folders() if f['name'] == args.folder), None)
-            if folder:
+            if folder and int(folder['total_count']) > 0:
                 total_emails = self.search_emails(folder, args.type, args.keyword, args.start, args.end,
                                    os.path.join(save_path, folder['name']))
-                logging.info(f"[+]总共搜索并下载到 {total_emails} 封邮件")
+                logging.info(f"总共搜索并下载到 {total_emails} 封邮件")
             else:
-                logging.error(f"未找到名为 {args.folder} 的文件夹")
+                logging.error(f"未找到名为 {args.folder} 的文件夹 或 文件夹中没有邮件")
 
 def escape(text):
     """对字符串进行XML特殊字符转义"""
@@ -472,7 +474,7 @@ def save_email_to_file(path, content):
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, 'wb') as file:
             file.write(b64decode(content))
-        logging.info(f"[+]邮件保存成功: {path}")
+        logging.info(f"邮件保存成功: {path}")
     except IOError as e:
         logging.error(f"无法保存邮件: {path}")
         raise e
