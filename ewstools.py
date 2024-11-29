@@ -20,7 +20,7 @@ from urllib3.util.ssl_ import create_urllib3_context
 requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
 
 # 初始化日志
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 
 class Config:
     TEMPLATES_FOLDER = "ews_post_template"
@@ -151,7 +151,7 @@ class EWSClient:
             folders.append({'name': folder_name, 'id': folder_id, 'key': folder_key, 'total_count': folder_total_count,
                             'child_folder_count': folder_child_folder_count, 'unread_count': folder_unread_count})
             logging.info(
-                f"找到文件夹: {folder_name} 邮件数量共计: {folder_total_count} 子文件夹数量: {folder_child_folder_count} 未读数量: {folder_unread_count}")
+                f"[+]找到文件夹: {folder_name} 邮件数量共计: {folder_total_count} 子文件夹数量: {folder_child_folder_count} 未读数量: {folder_unread_count}")
 
         return folders
 
@@ -203,9 +203,9 @@ class EWSClient:
                 break
             # 增加偏移量以获取下一页
             offset += size
-            logging.info(f"已下载 {offset} 封邮件，继续下一页...")
+            logging.info(f"[+]已下载 {offset} 封邮件，继续下一页...")
 
-        logging.info(f"文件夹 {folder['name']} 内邮件下载完成, 共下载 {total_count} 封邮件, 所有文件保存路径：{save_path}")
+        logging.info(f"[+]文件夹 {folder['name']} 内邮件下载完成, 共下载 {total_count} 封邮件, 所有文件保存路径：{save_path}")
 
     def save_single_email(self, email_id, change_key, save_path, retries=3, delay=2):
         """保存单封邮件"""
@@ -334,7 +334,7 @@ class EWSClient:
         if offset == 0:
             logging.info(f"文件夹 {folder['name']} 中没有符合条件的邮件。")
             return 0
-        logging.info(f"文件夹 {folder['name']} 符合条件的邮件下载完成, 共下载 {offset} 封邮件, 所有文件保存路径：{save_path}")
+        logging.info(f"[+]文件夹 {folder['name']} 符合条件的邮件下载完成, 共下载 {offset} 封邮件, 所有文件保存路径：{save_path}")
         return offset
 
     def handle_people(self):
@@ -354,12 +354,12 @@ class EWSClient:
         with open("peoples.txt", "w", encoding="utf-8") as file:
             for person in unique_people:
                 file.write(f"{person}\n")
-        logging.info(f"共计 {len(unique_people)} 条人员信息已保存到 'peoples.txt'")
+        logging.info(f"[+]共计 {len(unique_people)} 条人员信息已保存到 'peoples.txt'")
 
         with open("emails.txt", "w", encoding="utf-8") as file:
             for email in unique_emails:
                 file.write(f"{email}\n")
-        logging.info(f"共计 {len(unique_emails)} 条邮箱已保存到 'emails.txt'")
+        logging.info(f"[+]共计 {len(unique_emails)} 条邮箱已保存到 'emails.txt'")
 
 
     def handle_download(self, args):
@@ -423,18 +423,18 @@ class EWSClient:
                                            os.path.join(save_path, specific_folder['name']))
                     else:
                         logging.error(f"未找到名为 {confirm} 的文件夹")
-                    logging.info(f"总共搜索并下载到 {total_emails} 封邮件")
+                    logging.info(f"[+]总共搜索并下载到 {total_emails} 封邮件")
                     return
             for folder in folders:
                 total_emails += self.search_emails(folder, args.type, args.keyword, args.start, args.end,
                                    os.path.join(save_path, folder['name']))
-            logging.info(f"总共搜索并下载到 {total_emails} 封邮件")
+            logging.info(f"[+]总共搜索并下载到 {total_emails} 封邮件")
         else:
             folder = next((f for f in self.get_folders() if f['name'] == args.folder), None)
             if folder:
                 total_emails = self.search_emails(folder, args.type, args.keyword, args.start, args.end,
                                    os.path.join(save_path, folder['name']))
-                logging.info(f"总共搜索并下载到 {total_emails} 封邮件")
+                logging.info(f"[+]总共搜索并下载到 {total_emails} 封邮件")
             else:
                 logging.error(f"未找到名为 {args.folder} 的文件夹")
 
@@ -472,7 +472,7 @@ def save_email_to_file(path, content):
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, 'wb') as file:
             file.write(b64decode(content))
-        logging.info(f"邮件保存成功: {path}")
+        logging.info(f"[+]邮件保存成功: {path}")
     except IOError as e:
         logging.error(f"无法保存邮件: {path}")
         raise e
