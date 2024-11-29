@@ -5,6 +5,7 @@ import ssl
 import sys
 import logging
 import time
+from itertools import count
 from string import Template
 import xml.etree.ElementTree as ET
 from base64 import b64decode
@@ -313,7 +314,7 @@ class EWSClient:
 
             # 如果没有更多结果，结束循环
             if not items:
-                logging.info("搜索完成，没有更多结果。")
+                # logging.info("搜索完成，没有更多结果。")
                 break
 
             logging.info(f"获取到 {len(items)} 封邮件，正在下载...")
@@ -321,7 +322,7 @@ class EWSClient:
             # 下载当前页的邮件
             for item in items:
                 self.save_single_email(item.get('Id'), item.get('ChangeKey'), save_path)
-
+            # 当前页邮件数量小于最大数量时，表示已经是最后一页
             if len(items) < max_count:
                 offset += len(items)
                 break
@@ -329,7 +330,12 @@ class EWSClient:
             # 更新偏移量，处理下一页
             offset += max_count
             logging.info(f"已处理 {offset} 封邮件，继续下一页...")
+        # 当该文件夹下邮件为空
+        if offset == 0:
+            logging.info(f"文件夹 {folder['name']} 中没有符合条件的邮件。")
+            return 0
         logging.info(f"符合条件的邮件下载完成, 共下载 {offset} 封邮件, 所有文件保存路径：{save_path}")
+        return offset
 
     def handle_people(self):
         logging.info("查找所有人员")
@@ -405,25 +411,30 @@ class EWSClient:
 
         if args.folder == "all":
             folders = self.get_folders()
+            total_emails = 0
+
             if not args.y:
                 confirm = input(
                     "您即将搜索所有文件夹中的邮件。按回车键继续或输入 'Y' 以确认，或输入指定文件夹名称进行搜索: ")
                 if confirm.lower() not in ['', 'y']:
                     specific_folder = next((f for f in folders if f['name'].lower() == confirm.lower()), None)
                     if specific_folder:
-                        self.search_emails(specific_folder, args.type, args.keyword, args.start, args.end,
+                        total_emails += self.search_emails(specific_folder, args.type, args.keyword, args.start, args.end,
                                            os.path.join(save_path, specific_folder['name']))
                     else:
                         logging.error(f"未找到名为 {confirm} 的文件夹")
+                    print(f"总共搜索并下载到 {total_emails} 封邮件")
                     return
             for folder in folders:
-                self.search_emails(folder, args.type, args.keyword, args.start, args.end,
+                total_emails += self.search_emails(folder, args.type, args.keyword, args.start, args.end,
                                    os.path.join(save_path, folder['name']))
+            print(f"总共搜索并下载到 {total_emails} 封邮件")
         else:
             folder = next((f for f in self.get_folders() if f['name'] == args.folder), None)
             if folder:
-                self.search_emails(folder, args.type, args.keyword, args.start, args.end,
+                total_emails = self.search_emails(folder, args.type, args.keyword, args.start, args.end,
                                    os.path.join(save_path, folder['name']))
+                print(f"总共搜索并下载到 {total_emails} 封邮件")
             else:
                 logging.error(f"未找到名为 {args.folder} 的文件夹")
 
