@@ -13,11 +13,11 @@ EWS工具用于从Exchange服务器下载邮件，搜索邮件，获取人员信
 
 1. 克隆项目到本地：
     ```bash
-    git clone <项目地址>
+    git clone https://github.com/simonlee-hello/EWSTool
     ```
 2. 进入项目目录：
     ```bash
-    cd <项目目录>
+    cd EWSTool
     ```
 3. 安装依赖：
     ```bash
