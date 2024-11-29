@@ -1,6 +1,7 @@
 import argparse
 import os
 import re
+import ssl
 import sys
 import logging
 import time
@@ -11,6 +12,8 @@ import requests
 from datetime import datetime
 from requests_ntlm import HttpNtlmAuth
 from urllib3.exceptions import InsecureRequestWarning
+from requests.adapters import HTTPAdapter
+from urllib3.util.ssl_ import create_urllib3_context
 
 # 禁用SSL警告
 requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
@@ -30,12 +33,36 @@ class Config:
         "User-Agent": "Mozilla/5.0 (Windows NT 6.3; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.129 Safari/537.36"
     }
 
+class TLSAdapter(HTTPAdapter):
+    def __init__(self, tls_version=None, **kwargs):
+        self.tls_version = tls_version
+        super().__init__(**kwargs)
+
+    def init_poolmanager(self, *args, **kwargs):
+        context = create_urllib3_context()
+        if self.tls_version:
+            context.options |= self.tls_version
+        context.check_hostname = False  # 禁用 check_hostname
+        context.verify_mode = ssl.CERT_NONE  # 禁用证书验证
+        kwargs['ssl_context'] = context
+        return super().init_poolmanager(*args, **kwargs)
+
+    def proxy_manager_for(self, *args, **kwargs):
+        context = create_urllib3_context()
+        if self.tls_version:
+            context.options |= self.tls_version
+        context.check_hostname = False  # 禁用 check_hostname
+        context.verify_mode = ssl.CERT_NONE  # 禁用证书验证
+        kwargs['ssl_context'] = context
+        return super().proxy_manager_for(*args, **kwargs)
+
 class EWSClient:
-    def __init__(self, host, username, password_or_hash, proxy=None):
+    def __init__(self, host, username, password_or_hash, proxy=None, tls_version=None):
         self.host = host
         self.username = username
         self.password_or_hash = password_or_hash
         self.proxy = proxy
+        self.tls_version = tls_version
         self.session = self.create_session()
 
     def create_session(self):
@@ -43,6 +70,9 @@ class EWSClient:
         session.auth = HttpNtlmAuth(self.username, self.password_or_hash)
         if self.proxy:
             session.proxies = {"http": self.proxy, "https": self.proxy}
+        if self.tls_version:
+            tls_adapter = TLSAdapter(tls_version=self.tls_version)
+            session.mount('https://', tls_adapter)
         return session
 
     def send_soap_request(self, soap_body, retries=3, delay=2):
@@ -444,6 +474,8 @@ def parse_arguments():
     parser.add_argument("-p", "--password", required=False, help="明文密码")
     parser.add_argument("--hash", required=False, help="哈希")
     parser.add_argument("--proxy", help="HTTP代理")
+    parser.add_argument("--tls", choices=["1.0", "1.1", "1.2", "1.3"], help="指定TLS版本")
+
     # 创建子命令解析器
     subparsers = parser.add_subparsers(dest="module", required=True, help="功能模块")
 
@@ -484,7 +516,18 @@ def main():
     try:
         args = parse_arguments()
         password_or_hash = get_password_or_hash(args)
-        client = EWSClient(args.host, args.username, password_or_hash, args.proxy)
+        tls_version = 0x0301  # 默认TLS 1.0
+        if args.tls == "1.0":
+            tls_version = 0x0301
+        elif args.tls == "1.1":
+            tls_version = 0x0302
+        elif args.tls == "1.2":
+            tls_version = 0x0303
+        elif args.tls == "1.3":
+            tls_version = 0x0304
+        else:
+            logging.warning("未指定TLS版本，将使用默认值TLS 1.0")
+        client = EWSClient(args.host, args.username, password_or_hash, args.proxy, tls_version)
 
         if args.module == "people":
             client.handle_people()
@@ -499,9 +542,6 @@ def main():
     except KeyboardInterrupt:
         logging.info("程序已退出")
         sys.exit(0)
-
-
-
 
 if __name__ == "__main__":
     main()
