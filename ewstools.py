@@ -317,7 +317,7 @@ class EWSClient:
                 # logging.info("搜索完成，没有更多结果。")
                 break
 
-            logging.info(f"获取到 {len(items)} 封邮件，正在下载...")
+            logging.info(f"文件夹 {folder['name']} 获取到 {len(items)} 封邮件，正在下载...")
 
             # 下载当前页的邮件
             for item in items:
@@ -334,7 +334,7 @@ class EWSClient:
         if offset == 0:
             logging.info(f"文件夹 {folder['name']} 中没有符合条件的邮件。")
             return 0
-        logging.info(f"符合条件的邮件下载完成, 共下载 {offset} 封邮件, 所有文件保存路径：{save_path}")
+        logging.info(f"文件夹 {folder['name']} 符合条件的邮件下载完成, 共下载 {offset} 封邮件, 所有文件保存路径：{save_path}")
         return offset
 
     def handle_people(self):
@@ -354,12 +354,12 @@ class EWSClient:
         with open("peoples.txt", "w", encoding="utf-8") as file:
             for person in unique_people:
                 file.write(f"{person}\n")
-        logging.info(f"共计 {len(unique_people)} 条唯一人员信息已保存到 'peoples.txt'")
+        logging.info(f"共计 {len(unique_people)} 条人员信息已保存到 'peoples.txt'")
 
         with open("emails.txt", "w", encoding="utf-8") as file:
             for email in unique_emails:
                 file.write(f"{email}\n")
-        logging.info(f"共计 {len(unique_emails)} 条唯一邮箱已保存到 'emails.txt'")
+        logging.info(f"共计 {len(unique_emails)} 条邮箱已保存到 'emails.txt'")
 
 
     def handle_download(self, args):
@@ -423,18 +423,18 @@ class EWSClient:
                                            os.path.join(save_path, specific_folder['name']))
                     else:
                         logging.error(f"未找到名为 {confirm} 的文件夹")
-                    print(f"总共搜索并下载到 {total_emails} 封邮件")
+                    logging.info(f"总共搜索并下载到 {total_emails} 封邮件")
                     return
             for folder in folders:
                 total_emails += self.search_emails(folder, args.type, args.keyword, args.start, args.end,
                                    os.path.join(save_path, folder['name']))
-            print(f"总共搜索并下载到 {total_emails} 封邮件")
+            logging.info(f"总共搜索并下载到 {total_emails} 封邮件")
         else:
             folder = next((f for f in self.get_folders() if f['name'] == args.folder), None)
             if folder:
                 total_emails = self.search_emails(folder, args.type, args.keyword, args.start, args.end,
                                    os.path.join(save_path, folder['name']))
-                print(f"总共搜索并下载到 {total_emails} 封邮件")
+                logging.info(f"总共搜索并下载到 {total_emails} 封邮件")
             else:
                 logging.error(f"未找到名为 {args.folder} 的文件夹")
 
