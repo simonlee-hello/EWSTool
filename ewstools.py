@@ -173,10 +173,10 @@ class EWSClient:
         # Step 1: 获取文件夹中邮件的总数量
         total_count = self.get_email_count(folder)
         if total_count == 0:
-            logging.info(f"文件夹 {folder['name']} 中没有邮件，无需下载。")
+            logging.info(f"文件夹【{folder['name']}】中没有邮件，无需下载。")
             return
 
-        logging.info(f"文件夹 {folder['name']} 中有 {total_count} 封邮件，准备下载...")
+        logging.info(f"文件夹【{folder['name']}】中有 {total_count} 封邮件，准备下载...")
 
         # Step 2: 分页下载邮件
         template_file = os.path.join(Config.TEMPLATES_FOLDER, "ListMailOfFolder.xml")
@@ -205,7 +205,7 @@ class EWSClient:
             offset += size
             logging.info(f"已下载 {offset} 封邮件，继续下一页...")
 
-        logging.info(f"文件夹 {folder['name']} 内邮件下载完成, 共下载 {total_count} 封邮件, 所有文件保存路径：{save_path}")
+        logging.info(f"文件夹【{folder['name']}】内邮件下载完成, 共下载 {total_count} 封邮件, 所有文件保存路径：{save_path}")
 
     def save_single_email(self, email_id, change_key, save_path, retries=3, delay=2):
         """保存单封邮件"""
@@ -317,7 +317,7 @@ class EWSClient:
                 # logging.info("搜索完成，没有更多结果。")
                 break
 
-            logging.info(f"文件夹 {folder['name']} 获取到 {len(items)} 封邮件，正在下载...")
+            logging.info(f"文件夹【{folder['name']}】获取到 {len(items)} 封邮件，正在下载...")
 
             # 下载当前页的邮件
             for item in items:
@@ -332,9 +332,9 @@ class EWSClient:
             logging.info(f"已处理 {offset} 封邮件，继续下一页...")
         # 当该文件夹下邮件为空
         if offset == 0:
-            logging.info(f"文件夹 {folder['name']} 中没有符合条件的邮件。")
+            logging.info(f"文件夹【{folder['name']}】中没有符合条件的邮件。")
             return 0
-        logging.info(f"文件夹 {folder['name']} 符合条件的邮件下载完成, 共下载 {offset} 封邮件, 所有文件保存路径：{save_path}")
+        logging.info(f"文件夹【{folder['name']}】符合条件的邮件下载完成, 共下载 {offset} 封邮件, 所有文件保存路径：{save_path}")
         return offset
 
     def handle_people(self):
@@ -378,7 +378,7 @@ class EWSClient:
                         save_path = os.path.join(os.getcwd(), args.username, specific_folder['name'])
                         self.download_email(specific_folder, save_path)
                     else:
-                        logging.error(f"未找到名为 {confirm} 的文件夹或文件夹中没有邮件")
+                        logging.error(f"未找到名为【{confirm}】的文件夹或文件夹中没有邮件")
                     return
             for folder in folders:
                 if int(folder['total_count']) > 0:
@@ -390,7 +390,7 @@ class EWSClient:
                 save_path = os.path.join(os.getcwd(), args.username, folder['name'])
                 self.download_email(folder, save_path)
             else:
-                logging.error(f"未找到名为 {args.folder} 的文件夹或文件夹中没有邮件")
+                logging.error(f"未找到名为【{args.folder}】的文件夹或文件夹中没有邮件")
 
     def handle_search(self, args):
         if args.type == "keyword" and not args.keyword:
@@ -438,7 +438,7 @@ class EWSClient:
                                    os.path.join(save_path, folder['name']))
                 logging.info(f"总共搜索并下载到 {total_emails} 封邮件")
             else:
-                logging.error(f"未找到名为 {args.folder} 的文件夹 或 文件夹中没有邮件")
+                logging.error(f"未找到名为【{args.folder}】的文件夹 或 文件夹中没有邮件")
 
 def escape(text):
     """对字符串进行XML特殊字符转义"""
