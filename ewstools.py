@@ -69,6 +69,7 @@ class EWSClient:
     def create_session(self):
         session = requests.Session()
         session.auth = HttpNtlmAuth(self.username, self.password_or_hash)
+        logging.info(f"账号 {self.username} 密码或哈希 {self.password_or_hash} 正在连接到 {self.host}...")
         if self.proxy:
             session.proxies = {"http": self.proxy, "https": self.proxy}
         if self.tls_version:
@@ -574,12 +575,12 @@ def main():
         users = read_users(args.users)
         for email, hash_value in users:
             try:
-                ews_client = EWSClient(args.host, email, hash_value, args.proxy, tls_version)
+                args.username, args.hash = email, hash_value # 重置用户名和哈希
+                password_or_hash = get_password_or_hash(args)
+                ews_client = EWSClient(args.host, args.username, password_or_hash, args.proxy, tls_version)
                 if args.module == "download":
-                    args.username = email
                     ews_client.handle_download(args)
                 elif args.module == "search":
-                    args.username = email
                     ews_client.handle_search(args)
             except KeyboardInterrupt:
                 logging.info("程序已退出")
