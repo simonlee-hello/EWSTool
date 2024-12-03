@@ -472,6 +472,15 @@ def load_template(template_file, **kwargs):
         logging.error(f"无法读取模板文件: {template_file}")
         raise e
 
+def read_users(file_path):
+    users = []
+    with open(file_path, 'r', encoding='utf-8') as f:
+        for line in f:
+            if ':' in line:
+                email, hash_value = line.strip().split(':', 1)
+                users.append((email, hash_value))
+    return users
+
 def save_email_to_file(path, content):
     """保存邮件到文件"""
     try:
@@ -487,10 +496,11 @@ def save_email_to_file(path, content):
 def parse_arguments():
     parser = argparse.ArgumentParser(description="EWS工具, 用于从Exchange服务器下载邮件，搜索邮件，获取人员信息等。邮件搜索和下载功能是按照日期由近及远的顺序进行的。")
     parser.add_argument("--host", required=True, help="目标Exchange服务器")
-    parser.add_argument("-u", "--username", required=True, help="用户名")
+    parser.add_argument("-u", "--username", required=False, help="用户名")
+    parser.add_argument("-U", "--users", required=False, help="包含邮箱和哈希的文件路径")
     parser.add_argument("-p", "--password", required=False, help="明文密码")
     parser.add_argument("--hash", required=False, help="哈希")
-    parser.add_argument("--proxy", help="HTTP代理")
+    parser.add_argument("-P", "--proxy", help="HTTP代理")
     parser.add_argument("--tls", choices=["1.0", "1.1", "1.2", "1.3"], help="指定TLS版本")
 
     # 创建子命令解析器
@@ -502,7 +512,7 @@ def parse_arguments():
     subparsers.add_parser("folders", help="获取文件夹列表")
     # 下载模块
     download_parser = subparsers.add_parser("download", help="下载指定邮箱文件夹的邮件")
-    download_parser.add_argument("--folder",default="all", help="下载指定邮箱文件夹的邮件")
+    download_parser.add_argument("-F", "--folder",default="all", help="下载指定邮箱文件夹的邮件")
     download_parser.add_argument("--id", help="要下载的单个邮件的ID")
     download_parser.add_argument("--key", help="要下载的单个邮件的ChangeKey")
     download_parser.add_argument("-y", action="store_true", help="跳过确认")
@@ -512,7 +522,7 @@ def parse_arguments():
     search_parser.add_argument("-k", "--keyword", help="搜索关键词")
     search_parser.add_argument("--start", help="搜索邮件时的开始日期 (格式: YYYY-MM-DD)")
     search_parser.add_argument("--end", default=datetime.today().strftime('%Y-%m-%d'), help="搜索邮件时的结束日期 (格式: YYYY-MM-DD)")
-    search_parser.add_argument("--folder", default="all",help="要搜索的文件夹,'all'表示所有文件夹")
+    search_parser.add_argument("-F", "--folder", default="all",help="要搜索的文件夹,'all'表示所有文件夹")
     search_parser.add_argument("-y", action="store_true", help="跳过确认")
     
     return parser.parse_args()
@@ -527,38 +537,53 @@ def get_password_or_hash(args):
         sys.exit(1)
 
 
-
-
 def main():
-    try:
-        args = parse_arguments()
-        password_or_hash = get_password_or_hash(args)
-        tls_version = 0x0301  # 默认TLS 1.0
-        if args.tls == "1.0":
-            tls_version = 0x0301
-        elif args.tls == "1.1":
-            tls_version = 0x0302
-        elif args.tls == "1.2":
-            tls_version = 0x0303
-        elif args.tls == "1.3":
-            tls_version = 0x0304
-        else:
-            logging.warning("未指定TLS版本，将使用默认值TLS 1.0")
-        client = EWSClient(args.host, args.username, password_or_hash, args.proxy, tls_version)
+    args = parse_arguments()
+    tls_version = 0x0301  # 默认TLS 1.0
+    if args.tls == "1.0":
+        tls_version = 0x0301
+    elif args.tls == "1.1":
+        tls_version = 0x0302
+    elif args.tls == "1.2":
+        tls_version = 0x0303
+    elif args.tls == "1.3":
+        tls_version = 0x0304
+    else:
+        logging.warning("未指定TLS版本，将使用默认值TLS 1.0")
 
-        if args.module == "people":
-            client.handle_people()
-        elif args.module == "folders":
-            client.get_folders()
-        elif args.module == "download":
-            client.handle_download(args)
-        elif args.module == "search":
-            client.handle_search(args)
-        else:
-            logging.warning("请输入功能参数!")
-    except KeyboardInterrupt:
-        logging.info("程序已退出")
-        sys.exit(0)
+    if not args.users:
+        try:
+            password_or_hash = get_password_or_hash(args)
+
+            client = EWSClient(args.host, args.username, password_or_hash, args.proxy, tls_version)
+
+            if args.module == "people":
+                client.handle_people()
+            elif args.module == "folders":
+                client.get_folders()
+            elif args.module == "download":
+                client.handle_download(args)
+            elif args.module == "search":
+                client.handle_search(args)
+            else:
+                logging.warning("请输入功能参数!")
+        except KeyboardInterrupt:
+            logging.info("程序已退出")
+            sys.exit(0)
+    else:
+        users = read_users(args.users)
+        for email, hash_value in users:
+            try:
+                ews_client = EWSClient(args.host, email, hash_value, args.proxy, tls_version)
+                if args.module == "download":
+                    args.username = email
+                    ews_client.handle_download(args)
+                elif args.module == "search":
+                    args.username = email
+                    ews_client.handle_search(args)
+            except KeyboardInterrupt:
+                logging.info("程序已退出")
+                sys.exit(0)
 
 if __name__ == "__main__":
     main()
