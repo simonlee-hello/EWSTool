@@ -445,6 +445,23 @@ class EWSClient:
             else:
                 logging.error(f"未找到名为【{args.folder}】的文件夹 或 文件夹中没有邮件")
 
+    def process_single_user(self, args):
+        password_or_hash = get_password_or_hash(args)
+        self.username = args.username
+        self.password_or_hash = password_or_hash
+        self.session = self.create_session()
+
+        if args.module == "people":
+            self.handle_people()
+        elif args.module == "folders":
+            self.get_folders()
+        elif args.module == "download":
+            self.handle_download(args)
+        elif args.module == "search":
+            self.handle_search(args)
+        else:
+            logging.warning("请输入功能参数!")
+
 def escape(text):
     """对字符串进行XML特殊字符转义"""
     return (text
@@ -554,37 +571,24 @@ def main():
 
     if not args.users:
         try:
-            password_or_hash = get_password_or_hash(args)
-
-            client = EWSClient(args.host, args.username, password_or_hash, args.proxy, tls_version)
-
-            if args.module == "people":
-                client.handle_people()
-            elif args.module == "folders":
-                client.get_folders()
-            elif args.module == "download":
-                client.handle_download(args)
-            elif args.module == "search":
-                client.handle_search(args)
-            else:
-                logging.warning("请输入功能参数!")
+            client = EWSClient(args.host, args.username, get_password_or_hash(args), args.proxy, tls_version)
+            client.process_single_user(args)
         except KeyboardInterrupt:
             logging.info("程序已退出")
             sys.exit(0)
+        except Exception as e:
+            logging.error(f"处理用户 {args.username} 时出错: {e}")
     else:
         users = read_users(args.users)
         for email, hash_value in users:
             try:
-                args.username, args.hash = email, hash_value # 重置用户名和哈希
-                password_or_hash = get_password_or_hash(args)
-                ews_client = EWSClient(args.host, args.username, password_or_hash, args.proxy, tls_version)
-                if args.module == "download":
-                    ews_client.handle_download(args)
-                elif args.module == "search":
-                    ews_client.handle_search(args)
+                args.username, args.hash = email, hash_value  # 重置用户名和哈希
+                client = EWSClient(args.host, args.username, get_password_or_hash(args), args.proxy, tls_version)
+                client.process_single_user(args)
             except KeyboardInterrupt:
                 logging.info("程序已退出")
                 sys.exit(0)
-
+            except Exception as e:
+                logging.error(f"处理用户 {email} 时出错: {e}")
 if __name__ == "__main__":
     main()
