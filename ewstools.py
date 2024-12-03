@@ -22,6 +22,7 @@ requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
 # 初始化日志
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 
+
 class Config:
     TEMPLATES_FOLDER = "ews_post_template"
     HTTP_PROTO = "https"
@@ -33,6 +34,7 @@ class Config:
         "Content-Type": "text/xml",
         "User-Agent": "Mozilla/5.0 (Windows NT 6.3; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.129 Safari/537.36"
     }
+
 
 class TLSAdapter(HTTPAdapter):
     def __init__(self, tls_version=None, **kwargs):
@@ -56,6 +58,7 @@ class TLSAdapter(HTTPAdapter):
         context.verify_mode = ssl.CERT_NONE  # 禁用证书验证
         kwargs['ssl_context'] = context
         return super().proxy_manager_for(*args, **kwargs)
+
 
 class EWSClient:
     def __init__(self, host, username, password_or_hash, proxy=None, tls_version=None):
@@ -187,7 +190,8 @@ class EWSClient:
 
         while offset < total_count:
             # 使用模板生成 SOAP 请求体
-            soap_body = load_template(template_file, folder_id=folder['id'], folder_key=folder['key'], size=str(size), offset=str(offset))
+            soap_body = load_template(template_file, folder_id=folder['id'], folder_key=folder['key'], size=str(size),
+                                      offset=str(offset))
             response = self.send_soap_request(soap_body)
 
             # 解析返回的邮件列表
@@ -207,7 +211,8 @@ class EWSClient:
             offset += size
             logging.info(f"已下载 {offset} 封邮件，继续下一页...")
 
-        logging.info(f"文件夹【{folder['name']}】内邮件下载完成, 共下载 {total_count} 封邮件, 所有文件保存路径：{save_path}")
+        logging.info(
+            f"文件夹【{folder['name']}】内邮件下载完成, 共下载 {total_count} 封邮件, 所有文件保存路径：{save_path}")
         return total_count
 
     def save_single_email(self, email_id, change_key, save_path, retries=3, delay=2):
@@ -235,7 +240,8 @@ class EWSClient:
                         email_subject = "No_Subject"
                     # 截断文件名，避免过长导致保存失败
                     email_subject = email_subject[:50]
-                    email_file = os.path.join(save_path, escape_filename("[Subject]" + email_subject + "-" + email_id[-16:] + ".eml"))
+                    email_file = os.path.join(save_path, escape_filename(
+                        "[Subject]" + email_subject + "-" + email_id[-16:] + ".eml"))
                     save_email_to_file(email_file, mime_content)
                     return
                 else:
@@ -337,7 +343,8 @@ class EWSClient:
         if offset == 0:
             logging.info(f"文件夹【{folder['name']}】中没有符合条件的邮件。")
             return 0
-        logging.info(f"文件夹【{folder['name']}】符合条件的邮件下载完成, 共下载 {offset} 封邮件, 所有文件保存路径：{save_path}")
+        logging.info(
+            f"文件夹【{folder['name']}】符合条件的邮件下载完成, 共下载 {offset} 封邮件, 所有文件保存路径：{save_path}")
         return offset
 
     def handle_people(self):
@@ -363,7 +370,6 @@ class EWSClient:
             for email in unique_emails:
                 file.write(f"{email}\n")
         logging.info(f"共计 {len(unique_emails)} 条邮箱已保存到 'emails.txt'")
-
 
     def handle_download(self, args):
         if args.id and args.key:
@@ -426,8 +432,9 @@ class EWSClient:
                 if confirm.lower() not in ['', 'y']:
                     specific_folder = next((f for f in folders if f['name'].lower() == confirm.lower()), None)
                     if specific_folder and int(specific_folder['total_count']) > 0:
-                        total_emails += self.search_emails(specific_folder, args.type, args.keyword, args.start, args.end,
-                                           os.path.join(save_path, specific_folder['name']))
+                        total_emails += self.search_emails(specific_folder, args.type, args.keyword, args.start,
+                                                           args.end,
+                                                           os.path.join(save_path, specific_folder['name']))
                     else:
                         logging.error(f"未找到名为 {confirm} 的文件夹 或 文件夹中没有邮件")
                     logging.info(f"总共搜索并下载到 {total_emails} 封邮件")
@@ -435,13 +442,13 @@ class EWSClient:
             for folder in folders:
                 if int(folder['total_count']) > 0:
                     total_emails += self.search_emails(folder, args.type, args.keyword, args.start, args.end,
-                                   os.path.join(save_path, folder['name']))
+                                                       os.path.join(save_path, folder['name']))
             logging.info(f"总共搜索并下载到 {total_emails} 封邮件")
         else:
             folder = next((f for f in self.get_folders() if f['name'] == args.folder), None)
             if folder and int(folder['total_count']) > 0:
                 total_emails = self.search_emails(folder, args.type, args.keyword, args.start, args.end,
-                                   os.path.join(save_path, folder['name']))
+                                                  os.path.join(save_path, folder['name']))
                 logging.info(f"总共搜索并下载到 {total_emails} 封邮件")
             else:
                 logging.error(f"未找到名为【{args.folder}】的文件夹 或 文件夹中没有邮件")
@@ -463,6 +470,7 @@ class EWSClient:
         else:
             logging.warning("请输入功能参数!")
 
+
 def escape(text):
     """对字符串进行XML特殊字符转义"""
     return (text
@@ -471,9 +479,11 @@ def escape(text):
             .replace(">", "&gt;")
             .replace("\"", "&quot;"))
 
+
 def escape_filename(text):
     """处理文件名中的特殊字符"""
     return re.sub(r'[<>:"/\\|?*]', '-', text)
+
 
 def load_template(template_file, **kwargs):
     """加载并填充模板"""
@@ -491,6 +501,7 @@ def load_template(template_file, **kwargs):
         logging.error(f"无法读取模板文件: {template_file}")
         raise e
 
+
 def read_users(file_path):
     users = []
     with open(file_path, 'r', encoding='utf-8') as f:
@@ -499,6 +510,7 @@ def read_users(file_path):
                 email, hash_value = line.strip().split(':', 1)
                 users.append((email, hash_value))
     return users
+
 
 def save_email_to_file(path, content):
     """保存邮件到文件"""
@@ -513,7 +525,8 @@ def save_email_to_file(path, content):
 
 
 def parse_arguments():
-    parser = argparse.ArgumentParser(description="EWS工具, 用于从Exchange服务器下载邮件，搜索邮件，获取人员信息等。邮件搜索和下载功能是按照日期由近及远的顺序进行的。")
+    parser = argparse.ArgumentParser(
+        description="EWS工具, 用于从Exchange服务器下载邮件，搜索邮件，获取人员信息等。邮件搜索和下载功能是按照日期由近及远的顺序进行的。")
     parser.add_argument("--host", required=True, help="目标Exchange服务器")
     parser.add_argument("-u", "--username", required=False, help="用户名")
     parser.add_argument("-U", "--users", required=False, help="包含邮箱和哈希的文件路径")
@@ -531,20 +544,23 @@ def parse_arguments():
     subparsers.add_parser("folders", help="获取文件夹列表")
     # 下载模块
     download_parser = subparsers.add_parser("download", help="下载指定邮箱文件夹的邮件")
-    download_parser.add_argument("-F", "--folder",default="all", help="下载指定邮箱文件夹的邮件")
+    download_parser.add_argument("-F", "--folder", default="all", help="下载指定邮箱文件夹的邮件")
     download_parser.add_argument("--id", help="要下载的单个邮件的ID")
     download_parser.add_argument("--key", help="要下载的单个邮件的ChangeKey")
     download_parser.add_argument("-y", action="store_true", help="跳过确认")
     # 搜索模块
     search_parser = subparsers.add_parser("search", help="搜索邮件")
-    search_parser.add_argument("-t", "--type",choices=["keyword", "DateTimeReceived", "DateTimeSent"], required=True, help="搜索类型")
+    search_parser.add_argument("-t", "--type", choices=["keyword", "DateTimeReceived", "DateTimeSent"], required=True,
+                               help="搜索类型")
     search_parser.add_argument("-k", "--keyword", help="搜索关键词")
     search_parser.add_argument("--start", help="搜索邮件时的开始日期 (格式: YYYY-MM-DD)")
-    search_parser.add_argument("--end", default=datetime.today().strftime('%Y-%m-%d'), help="搜索邮件时的结束日期 (格式: YYYY-MM-DD)")
-    search_parser.add_argument("-F", "--folder", default="all",help="要搜索的文件夹, all 表示所有文件夹")
+    search_parser.add_argument("--end", default=datetime.today().strftime('%Y-%m-%d'),
+                               help="搜索邮件时的结束日期 (格式: YYYY-MM-DD)")
+    search_parser.add_argument("-F", "--folder", default="all", help="要搜索的文件夹, all 表示所有文件夹")
     search_parser.add_argument("-y", action="store_true", help="跳过确认")
-    
+
     return parser.parse_args()
+
 
 def get_password_or_hash(args):
     if args.password:
@@ -591,5 +607,7 @@ def main():
                 sys.exit(0)
             except Exception as e:
                 logging.error(f"处理用户 {email} 时出错: {e}")
+
+
 if __name__ == "__main__":
     main()
