@@ -8,6 +8,9 @@ EWS工具用于从Exchange服务器下载邮件，搜索邮件，获取人员信
 - **获取文件夹列表**：获取邮箱中的所有文件夹列表。
 - **下载邮件**：下载指定邮箱文件夹的邮件。
 - **搜索邮件**：按关键字或日期范围搜索邮件。
+- **批量下载邮件**：下载指定一批邮箱的邮件。
+- **批量搜索邮件**：按关键字或日期范围搜索指定一批邮箱的邮件。
+- **代理支持**：支持HTTP代理。
 
 ## 安装
 
@@ -29,7 +32,8 @@ EWS工具用于从Exchange服务器下载邮件，搜索邮件，获取人员信
 ### 命令行参数
 
 - `--host`：目标Exchange服务器地址（必填）。
-- `--username`：用户名（必填）。
+- `--username`：用户名（可选）。
+- `--users`：用户邮箱及哈希列表文件（可选）。
 - `--password`：明文密码（可选）。
 - `--hash`：NTLM 哈希密码（可选）。
 - `--proxy`：HTTP代理（可选）。格式：`http://127.0.0.1:8080`。
@@ -47,6 +51,18 @@ EWS工具用于从Exchange服务器下载邮件，搜索邮件，获取人员信
     - `--end`：结束日期（`YYYY-MM-DD`）。(为空时默认为当前日期)
     - `--folder`：文件夹名称。(默认所有文件夹)
 
+**注意**：
+
+1. 指定邮箱操作时`--password`或`--hash`必须提供其中之一。
+2. 指定批量操作时`--users`必须提供。
+
+users.txt文件格式，目前只支持NTLM Hash：
+```txt
+username1:hash1
+username2:hash2
+...
+```
+
 ### 示例
 
 1. 获取所有人员信息：
@@ -57,7 +73,12 @@ EWS工具用于从Exchange服务器下载邮件，搜索邮件，获取人员信
 
 2. 获取文件夹列表：
     ```bash
+    # 指定用户名和密码
     python ewstools.py --host <host> --username <username> --password <password> folders
+    # 指定用户名和哈希
+    python ewstools.py --host <host> --username <username> --hash <hash> folders
+    # 批量获取文件夹列表
+    python ewstools.py --host <host> --users <users_file> folders
     ```
 
 3. 下载邮件（按照日期从近到远进行下载）：
@@ -69,6 +90,10 @@ EWS工具用于从Exchange服务器下载邮件，搜索邮件，获取人员信
     python ewstools.py --host <host> --username <username> --password <password> download --folder <folder_name>
     # 跳过确认
     python ewstools.py --host <host> --username <username> --password <password> download --folder all -y
+    # 批量下载邮件
+    python ewstools.py --host <host> --users <users_file> download --folder all
+    # 跳过确认
+    python ewstools.py --host <host> --users <users_file> download --folder all -y
     ```
 
 4. 下载指定邮件：
@@ -85,6 +110,8 @@ EWS工具用于从Exchange服务器下载邮件，搜索邮件，获取人员信
     python ewstools.py --host <host> --username <username> --password <password> search --type keyword --keyword <keyword> --folder <folder_name>
     # 跳过确认
     python ewstools.py --host <host> --username <username> --password <password> search --type keyword --keyword <keyword> --folder all -y
+    # 批量搜索邮件
+    python ewstools.py --host <host> --users <users_file> search --type keyword --keyword <keyword> --folder all -y
     ```
 
 6. 按日期范围搜索邮件并下载（按照日期从近到远进行下载）：
@@ -96,6 +123,8 @@ EWS工具用于从Exchange服务器下载邮件，搜索邮件，获取人员信
     python ewstools.py --host <host> --username <username> --password <password> search --type DateTimeReceived --start <start_date> --end <end_date> --folder <folder_name>
     # 跳过确认
     python ewstools.py --host <host> --username <username> --password <password> search --type DateTimeReceived --start <start_date> --end <end_date> --folder all -y
+    # 批量搜索邮件
+    python ewstools.py --host <host> --users <users_file> search --type DateTimeReceived --start <start_date> --end <end_date> --folder all -y
     ```
 
 ## 配置
