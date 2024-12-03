@@ -69,7 +69,8 @@ class EWSClient:
     def create_session(self):
         session = requests.Session()
         session.auth = HttpNtlmAuth(self.username, self.password_or_hash)
-        logging.info(f"账号 {self.username} 密码或哈希 {self.password_or_hash} 正在连接到 {self.host}...")
+        logging.debug(f"账号 {self.username} 密码或哈希 {self.password_or_hash} 正在连接到 {self.host}...")
+        logging.info(f"账号 {self.username} 正在连接到 {self.host}...")
         if self.proxy:
             session.proxies = {"http": self.proxy, "https": self.proxy}
         if self.tls_version:
@@ -540,7 +541,7 @@ def parse_arguments():
     search_parser.add_argument("-k", "--keyword", help="搜索关键词")
     search_parser.add_argument("--start", help="搜索邮件时的开始日期 (格式: YYYY-MM-DD)")
     search_parser.add_argument("--end", default=datetime.today().strftime('%Y-%m-%d'), help="搜索邮件时的结束日期 (格式: YYYY-MM-DD)")
-    search_parser.add_argument("-F", "--folder", default="all",help="要搜索的文件夹,'all'表示所有文件夹")
+    search_parser.add_argument("-F", "--folder", default="all",help="要搜索的文件夹, all 表示所有文件夹")
     search_parser.add_argument("-y", action="store_true", help="跳过确认")
     
     return parser.parse_args()
