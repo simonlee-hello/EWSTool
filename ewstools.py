@@ -103,7 +103,7 @@ class EWSClient:
                 logging.error(f"请求发生异常: {e}")
 
         logging.error(f"请求失败，已达到最大重试次数 ({retries})")
-        sys.exit(1)
+        raise Exception("请求失败,以达到最大重试次数")
 
     def find_all_people(self, query):
         """查找所有人员"""
@@ -373,7 +373,7 @@ class EWSClient:
 
     def handle_download(self, args):
         if args.id and args.key:
-            save_path = os.path.join(os.getcwd(), args.username, "SingleEmail")
+            save_path = os.path.join(os.getcwd(), args.output, args.username, "SingleEmail")
             self.save_single_email(args.id, args.key, save_path)
             return
         if args.folder == "all":
@@ -385,7 +385,7 @@ class EWSClient:
                 if confirm.lower() not in ['', 'y']:
                     specific_folder = next((f for f in folders if f['name'].lower() == confirm.lower()), None)
                     if specific_folder and int(specific_folder['total_count']) > 0:
-                        save_path = os.path.join(os.getcwd(), args.username, specific_folder['name'])
+                        save_path = os.path.join(os.getcwd(), args.output, args.username, specific_folder['name'])
                         self.download_email(specific_folder, save_path)
 
                     else:
@@ -393,13 +393,13 @@ class EWSClient:
                     return
             for folder in folders:
                 if int(folder['total_count']) > 0:
-                    save_path = os.path.join(os.getcwd(), args.username, folder['name'])
+                    save_path = os.path.join(os.getcwd(), args.output, args.username, folder['name'])
                     total_emails += self.download_email(folder, save_path)
-            logging.info(f"总共下载到 {total_emails} 封邮件")
+            logging.info(f"{args.username} 总共下载到 {total_emails} 封邮件")
         else:
             folder = next((f for f in self.get_folders() if f['name'] == args.folder), None)
             if folder and int(folder['total_count']) > 0:
-                save_path = os.path.join(os.getcwd(), args.username, folder['name'])
+                save_path = os.path.join(os.getcwd(), args.output, args.username, folder['name'])
                 self.download_email(folder, save_path)
             else:
                 logging.error(f"未找到名为【{args.folder}】的文件夹或文件夹中没有邮件")
@@ -413,7 +413,7 @@ class EWSClient:
             logging.error("必须指定起始日期（--start）或截止日期（--end）")
             sys.exit(1)
 
-        save_path = os.path.join(os.getcwd(), args.username)
+        save_path = os.path.join(os.getcwd(), args.output, args.username)
         if args.type == "keyword":
             save_path = os.path.join(save_path, f"Search-{escape_filename(args.keyword)}")
             logging.info(f"开始搜索标题和正文中包含 {args.keyword} 关键字的邮件")
@@ -437,21 +437,21 @@ class EWSClient:
                                                            os.path.join(save_path, specific_folder['name']))
                     else:
                         logging.error(f"未找到名为 {confirm} 的文件夹 或 文件夹中没有邮件")
-                    logging.info(f"总共搜索并下载到 {total_emails} 封邮件")
+                    logging.info(f"{args.username} 总共搜索并下载到 {total_emails} 封邮件")
                     return
             for folder in folders:
                 if int(folder['total_count']) > 0:
                     total_emails += self.search_emails(folder, args.type, args.keyword, args.start, args.end,
                                                        os.path.join(save_path, folder['name']))
-            logging.info(f"总共搜索并下载到 {total_emails} 封邮件")
+            logging.info(f"{args.username} 总共搜索并下载到 {total_emails} 封邮件")
         else:
             folder = next((f for f in self.get_folders() if f['name'] == args.folder), None)
             if folder and int(folder['total_count']) > 0:
                 total_emails = self.search_emails(folder, args.type, args.keyword, args.start, args.end,
                                                   os.path.join(save_path, folder['name']))
-                logging.info(f"总共搜索并下载到 {total_emails} 封邮件")
+                logging.info(f"{args.username} 总共搜索并下载到 {total_emails} 封邮件")
             else:
-                logging.error(f"未找到名为【{args.folder}】的文件夹 或 文件夹中没有邮件")
+                logging.error(f"{args.username} 未找到名为【{args.folder}】的文件夹 或 文件夹中没有邮件")
 
     def process_single_user(self, args):
         password_or_hash = get_password_or_hash(args)
@@ -534,6 +534,7 @@ def parse_arguments():
     parser.add_argument("--hash", required=False, help="哈希")
     parser.add_argument("-P", "--proxy", help="HTTP代理")
     parser.add_argument("--tls", choices=["1.0", "1.1", "1.2", "1.3"], help="指定TLS版本")
+    parser.add_argument("-o", "--output",default="mails", help="输出文件夹")
 
     # 创建子命令解析器
     subparsers = parser.add_subparsers(dest="module", required=True, help="功能模块")
@@ -596,6 +597,7 @@ def main():
         except Exception as e:
             logging.error(f"处理用户 {args.username} 时出错: {e}")
     else:
+        error_users = [] # 记录错误用户
         users = read_users(args.users)
         for email, hash_value in users:
             try:
@@ -607,6 +609,11 @@ def main():
                 sys.exit(0)
             except Exception as e:
                 logging.error(f"处理用户 {email} 时出错: {e}")
+                error_users.append(email)
+        logging.info("所有用户处理完成.")
+        if error_users:
+            logging.error(f"以下用户处理失败: {error_users}, 请检查密码或哈希是否正确.")
+
 
 
 if __name__ == "__main__":
