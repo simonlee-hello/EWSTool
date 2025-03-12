@@ -1,8 +1,17 @@
-# EWS工具
+# EWSTool - Exchange工具集
 
-EWS工具用于从Exchange服务器下载邮件，搜索邮件，获取人员信息等。
+EWSTool 用于从 Exchange 服务器下载邮件，搜索邮件，获取人员信息等。
 
-## 功能
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![Python 3.7+](https://img.shields.io/badge/python-3.7+-blue)](https://www.python.org/)
+
+## ⚠️ 法律声明
+
+1. 本工具仅限授权测试使用，禁止用于非法用途
+2. 使用前需获得目标系统的书面渗透测试授权
+3. 操作敏感数据时请遵守当地数据隐私法规
+
+## 核心功能
 
 - **获取人员信息**：获取所有人员信息及邮箱地址。
 - **获取文件夹列表**：获取邮箱中的所有文件夹列表。
@@ -28,6 +37,23 @@ EWS工具用于从Exchange服务器下载邮件，搜索邮件，获取人员信
     ```
 
 ## 使用方法
+
+![基本使用](./assets/help.png)
+
+### 获取人员信息
+![获取人员信息](./assets/people.png)
+![获取人员信息](./assets/peopleinfo.png)
+### 获取文件夹列表
+![获取文件夹列表](./assets/folders.png)
+### 下载邮件
+![下载邮件](./assets/downloadmail.png)
+### 搜索邮件
+![搜索邮件](./assets/searchbykeyword.png)
+![搜索邮件](./assets/searchbydate.png)
+![搜索邮件](./assets/searchbydateresult.png)
+### 批量下载邮件
+![批量下载邮件](./assets/batchdownload.png)
+![批量下载邮件](./assets/batchdownloadresult.png)
 
 ### 命令行参数
 
@@ -146,3 +172,7 @@ username2:hash2
 
 - 确保提供的用户名和密码（或哈希）具有访问Exchange服务器的权限。
 - 使用代理时，请确保代理服务器配置正确。
+
+## 贡献指南
+
+欢迎提交Issue或PR
